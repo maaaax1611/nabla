@@ -1,6 +1,8 @@
 import numpy as np
 from nabla.ops.basic import Add, Subtract, Multiply, Divide
 from nabla.ops.reduce import Sum, Mean
+from nabla.ops.transform import MatMul
+from nabla.ops.activation import ReLU, Sigmoid
 
 class Tensor:
     def __init__(self, data, requires_grad=False):
@@ -60,3 +62,12 @@ class Tensor:
     
     def mean(self):
         return Mean.apply(self)
+    
+    def matmul(self, other):
+        return MatMul.apply(self, other)
+    
+    def relu(self):
+        return ReLU.apply(self)
+    
+    def sigmoid(self):
+        return Sigmoid.apply(self)

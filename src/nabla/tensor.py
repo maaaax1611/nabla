@@ -1,5 +1,6 @@
 import numpy as np
 from nabla.ops.basic import Add, Subtract, Multiply, Divide
+from nabla.ops.reduce import Sum, Mean
 
 class Tensor:
     def __init__(self, data, requires_grad=False):
@@ -53,3 +54,9 @@ class Tensor:
     
     def __truediv__(self, other):
         return Divide.apply(self, other)
+    
+    def sum(self):
+        return Sum.apply(self)
+    
+    def mean(self):
+        return Mean.apply(self)

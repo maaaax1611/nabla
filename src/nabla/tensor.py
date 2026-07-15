@@ -57,6 +57,9 @@ class Tensor:
     def __truediv__(self, other):
         return Divide.apply(self, other)
     
+    def __matmul__(self, other):
+        return MatMul.apply(self, other)
+    
     def sum(self):
         return Sum.apply(self)
     

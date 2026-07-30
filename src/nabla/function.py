@@ -35,18 +35,20 @@ class Function:
         raise NotImplementedError
 
     @classmethod
-    def apply(cls, *inputs: Tensor) -> Tensor:
+    def apply(cls, *inputs: Tensor, **kwargs) -> Tensor:
         """Create a new operation instance, run forward, and build the computation graph.
 
         Args:
             *inputs: Input tensors to the operation.
+            **kwargs: Extra non-tensor configuration passed to the operation's
+                constructor (e.g. ``new_shape`` for Reshape, ``axes`` for Transpose).
 
         Returns:
             A new Tensor containing the result with graph connections set up.
         """
         from nabla.tensor import Tensor
 
-        ctx = cls()
+        ctx = cls(**kwargs)
         result = ctx.forward(*inputs)
         out = Tensor(result)
 

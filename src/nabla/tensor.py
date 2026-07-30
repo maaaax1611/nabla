@@ -3,10 +3,11 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from nabla.ops.basic import Add, Subtract, Multiply, Divide
-from nabla.ops.reduce import Sum, Mean
-from nabla.ops.transform import MatMul
+from nabla.function import Function
 from nabla.ops.activation import ReLU, Sigmoid
+from nabla.ops.basic import Add, Divide, Multiply, Subtract
+from nabla.ops.reduce import Mean, Sum
+from nabla.ops.transform import MatMul, Reshape, Transpose
 
 
 class Tensor:
@@ -25,7 +26,7 @@ class Tensor:
         self.data: NDArray = np.array(data) if not isinstance(data, np.ndarray) else data
         self.requires_grad = requires_grad
         self.grad: NDArray | None = None
-        self._ctx: "Function | None" = None
+        self._ctx: Function | None = None
         self._prev: tuple[Tensor, ...] = ()
 
     def backward(self, grad: NDArray | None = None) -> None:
@@ -89,6 +90,19 @@ class Tensor:
     def matmul(self, other: Tensor) -> Tensor:
         """Matrix multiplication with another tensor."""
         return MatMul.apply(self, other)
+
+    def reshape(self, new_shape: tuple[int, ...]) -> Tensor:
+        """Reshape the tensor to a new shape (total size must stay the same)."""
+        return Reshape.apply(self, new_shape=new_shape)
+
+    def transpose(self, axes: tuple[int, ...] | None = None) -> Tensor:
+        """Permute the tensor's axes. If axes is None, reverses all axes."""
+        return Transpose.apply(self, axes=axes)
+
+    @property
+    def T(self) -> Tensor:
+        """Reverse all axes, mirroring numpy's ``.T`` behavior."""
+        return Transpose.apply(self)
 
     def relu(self) -> Tensor:
         """Apply ReLU activation element-wise."""

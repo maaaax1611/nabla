@@ -19,7 +19,6 @@ class XORNet(Module):
         x = x.sigmoid()
         return x
 
-
 # data
 X = Tensor(np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=np.float64))
 y = Tensor(np.array([[0], [1], [1], [0]], dtype=np.float64))

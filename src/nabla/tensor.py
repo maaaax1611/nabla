@@ -1,76 +1,102 @@
+from __future__ import annotations
+
 import numpy as np
+from numpy.typing import ArrayLike, NDArray
+
 from nabla.ops.basic import Add, Subtract, Multiply, Divide
 from nabla.ops.reduce import Sum, Mean
 from nabla.ops.transform import MatMul
 from nabla.ops.activation import ReLU, Sigmoid
 
-class Tensor:
-    def __init__(self, data, requires_grad=False):
-        self.data = data
-        self.requires_grad = requires_grad
-        self.grad = None
-        self._ctx = None
-        self._prev = []
 
-    def backward(self, grad=None):
-        # check if we already have a gradient
-        # if not initialize it with ones
+class Tensor:
+    """A multi-dimensional array with automatic differentiation support.
+
+    Args:
+        data: The underlying data, will be stored as-is (should be a numpy array).
+        requires_grad: If True, gradients will be computed for this tensor.
+
+    Attributes:
+        data: The numpy array holding the values.
+        grad: The accumulated gradient, same shape as data.
+    """
+
+    def __init__(self, data: ArrayLike, requires_grad: bool = False) -> None:
+        self.data: NDArray = np.array(data) if not isinstance(data, np.ndarray) else data
+        self.requires_grad = requires_grad
+        self.grad: NDArray | None = None
+        self._ctx: "Function | None" = None
+        self._prev: tuple[Tensor, ...] = ()
+
+    def backward(self, grad: NDArray | None = None) -> None:
+        """Compute gradients via reverse-mode automatic differentiation.
+
+        Args:
+            grad: The initial gradient. If None, defaults to ones with the same shape as data.
+        """
         if grad is None:
             self.grad = np.ones_like(self.data)
         else:
             self.grad = grad
 
-        # topo sort graph
-        topo = []
-        visited = set()
-        def topo_sort(tensor):
-            if tensor not in visited:
-                visited.add(tensor)
+        # topological sort of the computation graph
+        topo: list[Tensor] = []
+        visited: set[int] = set()
+
+        def topo_sort(tensor: Tensor) -> None:
+            if id(tensor) not in visited:
+                visited.add(id(tensor))
                 for parent in tensor._prev:
                     topo_sort(parent)
                 topo.append(tensor)
+
         topo_sort(self)
 
-        # go backwad through the sorted graph
+        # propagate gradients backward through the sorted graph
         for tensor in reversed(topo):
-            # skip leaf tensors
             if tensor._ctx:
-                # how does the current gradient affect the parents?
-                # this should give us a tuple/list of gradients for each parent
                 grads = tensor._ctx.backward(tensor.grad)
-                for parent, grad in zip(tensor._prev, grads):
+                for parent, g in zip(tensor._prev, grads):
                     if parent.requires_grad:
                         if parent.grad is None:
-                            parent.grad = grad
+                            parent.grad = g
                         else:
-                            parent.grad += grad
+                            parent.grad = parent.grad + g
 
-    def __add__(self, other):
+    def __add__(self, other: Tensor) -> Tensor:
         return Add.apply(self, other)
-    
-    def __sub__(self, other):
+
+    def __sub__(self, other: Tensor) -> Tensor:
         return Subtract.apply(self, other)
-    
-    def __mul__(self, other):
+
+    def __mul__(self, other: Tensor) -> Tensor:
         return Multiply.apply(self, other)
-    
-    def __truediv__(self, other):
+
+    def __truediv__(self, other: Tensor) -> Tensor:
         return Divide.apply(self, other)
-    
-    def __matmul__(self, other):
+
+    def __matmul__(self, other: Tensor) -> Tensor:
         return MatMul.apply(self, other)
-    
-    def sum(self):
+
+    def sum(self) -> Tensor:
+        """Reduce all elements to a scalar by summation."""
         return Sum.apply(self)
-    
-    def mean(self):
+
+    def mean(self) -> Tensor:
+        """Reduce all elements to a scalar by averaging."""
         return Mean.apply(self)
-    
-    def matmul(self, other):
+
+    def matmul(self, other: Tensor) -> Tensor:
+        """Matrix multiplication with another tensor."""
         return MatMul.apply(self, other)
-    
-    def relu(self):
+
+    def relu(self) -> Tensor:
+        """Apply ReLU activation element-wise."""
         return ReLU.apply(self)
-    
-    def sigmoid(self):
+
+    def sigmoid(self) -> Tensor:
+        """Apply sigmoid activation element-wise."""
         return Sigmoid.apply(self)
+
+    def __repr__(self) -> str:
+        return f"Tensor({self.data}, requires_grad={self.requires_grad})"

@@ -1,25 +1,36 @@
-from nabla.function import Function
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
+from numpy.typing import NDArray
+
+from nabla.function import Function
+
+if TYPE_CHECKING:
+    from nabla.tensor import Tensor
+
 
 class Sum(Function):
-    def forward(self, x):
+    """Reduce all elements to a scalar by summation."""
+
+    def forward(self, x: Tensor) -> NDArray:
         self.save_for_backward(x)
         return np.sum(x.data)
-    
-    def backward(self, grad_output):
-        x, = self.saved_tensors
-        # gradient of sum is 1 for each element in the input tensor
-        # so basically, we just blow up the grad_output to the shape of x.data
+
+    def backward(self, grad_output: NDArray) -> tuple[NDArray]:
+        (x,) = self.saved_tensors
         return (np.ones_like(x.data) * grad_output,)
-    
+
 
 class Mean(Function):
-    def forward(self, x):
+    """Reduce all elements to a scalar by averaging."""
+
+    def forward(self, x: Tensor) -> NDArray:
         self.save_for_backward(x)
         return np.mean(x.data)
-    
-    def backward(self, grad_output):
-        x, = self.saved_tensors
-        # gradient of mean is 1/n for each element in the input tensor
+
+    def backward(self, grad_output: NDArray) -> tuple[NDArray]:
+        (x,) = self.saved_tensors
         n = x.data.size
         return (np.ones_like(x.data) * (grad_output / n),)

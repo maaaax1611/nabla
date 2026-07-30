@@ -1,14 +1,25 @@
-from nabla.function import Function
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import numpy as np
+from numpy.typing import NDArray
+
+from nabla.function import Function
+
+if TYPE_CHECKING:
+    from nabla.tensor import Tensor
+
 
 class MatMul(Function):
-    def forward(self, a, b):
+    """Matrix multiplication: z = a @ b."""
+
+    def forward(self, a: Tensor, b: Tensor) -> NDArray:
         self.save_for_backward(a, b)
         return np.dot(a.data, b.data)
-    
-    def backward(self, grad_output):
+
+    def backward(self, grad_output: NDArray) -> tuple[NDArray, NDArray]:
         a, b = self.saved_tensors
-        # gradient of matrix multiplication is b^T for the first input and a^T for the second
         grad_a = np.dot(grad_output, b.data.T)
         grad_b = np.dot(a.data.T, grad_output)
         return grad_a, grad_b

@@ -1,51 +1,68 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import numpy as np
+from numpy.typing import NDArray
+
+from nabla.broadcast import unbroadcast
 from nabla.function import Function
 
+if TYPE_CHECKING:
+    from nabla.tensor import Tensor
+
+
 class Add(Function):
-    def forward(self, x, y):
+    """Element-wise addition: z = x + y."""
+
+    def forward(self, x: Tensor, y: Tensor) -> NDArray:
         self.save_for_backward(x, y)
         return x.data + y.data
 
-    def backward(self, grad_output):
-        # gradient of addition is 1 for both inputs
+    def backward(self, grad_output: NDArray) -> tuple[NDArray, NDArray]:
         x, y = self.saved_tensors
-        grad_x = grad_output
-        grad_y = grad_output
-
-        # unbroadcast
-        while grad_x.ndim > x.data.ndim:
-            grad_x = grad_x.sum(axis=0)
-        while grad_y.ndim > y.data.ndim:
-            grad_y = grad_y.sum(axis=0)
-        
+        grad_x = unbroadcast(grad_output, x.data.shape)
+        grad_y = unbroadcast(grad_output, y.data.shape)
         return grad_x, grad_y
-    
+
 
 class Subtract(Function):
-    def forward(self, x, y):
+    """Element-wise subtraction: z = x - y."""
+
+    def forward(self, x: Tensor, y: Tensor) -> NDArray:
+        self.save_for_backward(x, y)
         return x.data - y.data
 
-    def backward(self, grad_output):
-        # gradient of subtraction is 1 for the first input and -1 for the second
-        return grad_output, -grad_output
-    
+    def backward(self, grad_output: NDArray) -> tuple[NDArray, NDArray]:
+        x, y = self.saved_tensors
+        grad_x = unbroadcast(grad_output, x.data.shape)
+        grad_y = unbroadcast(-grad_output, y.data.shape)
+        return grad_x, grad_y
+
 
 class Multiply(Function):
-    def forward(self, x, y):
+    """Element-wise multiplication: z = x * y."""
+
+    def forward(self, x: Tensor, y: Tensor) -> NDArray:
         self.save_for_backward(x, y)
         return x.data * y.data
 
-    def backward(self, grad_output):
+    def backward(self, grad_output: NDArray) -> tuple[NDArray, NDArray]:
         x, y = self.saved_tensors
-        # gradient of multiplication is y for the first input and x for the second
-        return grad_output * y.data, grad_output * x.data
-    
+        grad_x = unbroadcast(grad_output * y.data, x.data.shape)
+        grad_y = unbroadcast(grad_output * x.data, y.data.shape)
+        return grad_x, grad_y
+
 
 class Divide(Function):
-    def forward(self, x, y):
+    """Element-wise division: z = x / y."""
+
+    def forward(self, x: Tensor, y: Tensor) -> NDArray:
         self.save_for_backward(x, y)
         return x.data / y.data
 
-    def backward(self, grad_output):
+    def backward(self, grad_output: NDArray) -> tuple[NDArray, NDArray]:
         x, y = self.saved_tensors
-        # gradient of division is 1/y for the first input and -x/y^2 for the second
-        return grad_output / y.data, -grad_output * x.data / (y.data ** 2)
+        grad_x = unbroadcast(grad_output / y.data, x.data.shape)
+        grad_y = unbroadcast(-grad_output * x.data / (y.data ** 2), y.data.shape)
+        return grad_x, grad_y

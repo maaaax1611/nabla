@@ -1,7 +1,11 @@
 from __future__ import annotations
 
-import numpy as np
+from typing import Callable
 
+import numpy as np
+from numpy.typing import NDArray
+
+from nabla.init import he
 from nabla.nn.module import Module
 from nabla.tensor import Tensor
 
@@ -12,17 +16,20 @@ class Linear(Module):
     Args:
         in_features: Size of each input sample.
         out_features: Size of each output sample.
+        weight_init: Callable mapping a shape to an initial weight array.
+            Defaults to He initialization.
     """
 
-    def __init__(self, in_features: int, out_features: int) -> None:
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        weight_init: Callable[[tuple[int, ...]], NDArray] = he,
+    ) -> None:
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        # He initialization (suitable for ReLU activations)
-        self.weight = Tensor(
-            np.random.randn(in_features, out_features) * np.sqrt(2.0 / in_features),
-            requires_grad=True,
-        )
+        self.weight = Tensor(weight_init((in_features, out_features)), requires_grad=True)
         self.bias = Tensor(np.zeros(out_features), requires_grad=True)
 
     def forward(self, x: Tensor) -> Tensor:

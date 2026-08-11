@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import numpy as np
+
 from nabla.nn.module import Module
+from nabla.ops.loss import SoftmaxCrossEntropy
 from nabla.tensor import Tensor
 
 
@@ -29,3 +32,37 @@ class MSELoss(Module):
             )
         diff = predictions - targets
         return (diff * diff).mean()
+
+
+class CrossEntropyLoss(Module):
+    """Softmax + negative log-likelihood loss for multi-class classification.
+
+    Applies softmax to the logits internally, so the model should output
+    raw, unnormalized scores (no activation on the final layer).
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, logits: Tensor, targets: Tensor) -> Tensor:
+        """Compute the cross-entropy loss between logits and class labels.
+
+        Args:
+            logits: Model output of shape (batch, num_classes), unnormalized.
+            targets: Integer class labels of shape (batch,), either a Tensor
+                or a plain array-like.
+
+        Returns:
+            Scalar tensor containing the mean cross-entropy loss.
+        """
+        if not isinstance(logits, Tensor):
+            raise TypeError("logits must be a Tensor.")
+        if not isinstance(targets, Tensor):
+            targets = Tensor(np.asarray(targets))
+        if logits.data.ndim != 2:
+            raise ValueError(f"Expected logits of shape (batch, num_classes), got {logits.data.shape}.")
+        if targets.data.shape != (logits.data.shape[0],):
+            raise ValueError(
+                f"Expected targets of shape ({logits.data.shape[0]},), got {targets.data.shape}."
+            )
+        return SoftmaxCrossEntropy.apply(logits, targets)

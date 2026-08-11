@@ -6,6 +6,7 @@ from numpy.typing import ArrayLike, NDArray
 from nabla.function import Function
 from nabla.ops.activation import ReLU, Sigmoid
 from nabla.ops.basic import Add, Divide, Multiply, Subtract
+from nabla.ops.conv import Conv2D
 from nabla.ops.reduce import Mean, Sum
 from nabla.ops.transform import MatMul, Reshape, Transpose
 
@@ -98,6 +99,17 @@ class Tensor:
     def transpose(self, axes: tuple[int, ...] | None = None) -> Tensor:
         """Permute the tensor's axes. If axes is None, reverses all axes."""
         return Transpose.apply(self, axes=axes)
+
+    def conv2d(self, weight: Tensor, bias: Tensor, stride: int = 1, padding: int = 0) -> Tensor:
+        """2D convolution with this tensor as input.
+
+        Args:
+            weight: Kernel of shape (out_channels, in_channels, kh, kw).
+            bias: Per-output-channel bias of shape (out_channels,).
+            stride: Step size of the sliding window.
+            padding: Zero-padding added to both sides of the H/W axes.
+        """
+        return Conv2D.apply(self, weight, bias, stride=stride, padding=padding)
 
     @property
     def T(self) -> Tensor:

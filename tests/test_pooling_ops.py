@@ -165,3 +165,27 @@ class TestAvgPool2D:
         out.backward(grad_output)
 
         assert np.allclose(x.grad, numerical_gradient(forward, x, grad_output), atol=1e-6)
+
+
+class TestTensorPoolingWrappers:
+    def test_max_pool2d_matches_function(self):
+        x = Tensor(np.random.randn(2, 3, 6, 6))
+        via_wrapper = x.max_pool2d(kernel_size=2, stride=2)
+        via_function = MaxPool2D.apply(x, kernel_size=2, stride=2)
+        assert np.array_equal(via_wrapper.data, via_function.data)
+
+    def test_avg_pool2d_matches_function(self):
+        x = Tensor(np.random.randn(2, 3, 6, 6))
+        via_wrapper = x.avg_pool2d(kernel_size=2, stride=2)
+        via_function = AvgPool2D.apply(x, kernel_size=2, stride=2)
+        assert np.array_equal(via_wrapper.data, via_function.data)
+
+    def test_max_pool2d_default_stride_equals_kernel_size(self):
+        x = Tensor(np.random.randn(1, 1, 4, 4))
+        assert x.max_pool2d(kernel_size=2).data.shape == (1, 1, 2, 2)
+
+    def test_max_pool2d_backward_fills_gradient(self):
+        x = Tensor(np.random.randn(2, 3, 4, 4), requires_grad=True)
+        out = x.max_pool2d(kernel_size=2)
+        out.sum().backward()
+        assert x.grad.shape == x.data.shape

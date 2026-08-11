@@ -7,6 +7,7 @@ from nabla.function import Function
 from nabla.ops.activation import ReLU, Sigmoid
 from nabla.ops.basic import Add, Divide, Multiply, Subtract
 from nabla.ops.conv import Conv2D
+from nabla.ops.pooling import AvgPool2D, MaxPool2D
 from nabla.ops.reduce import Mean, Sum
 from nabla.ops.transform import MatMul, Reshape, Transpose
 
@@ -110,6 +111,14 @@ class Tensor:
             padding: Zero-padding added to both sides of the H/W axes.
         """
         return Conv2D.apply(self, weight, bias, stride=stride, padding=padding)
+
+    def max_pool2d(self, kernel_size: int, stride: int | None = None) -> Tensor:
+        """2D max pooling. stride defaults to kernel_size (non-overlapping windows)."""
+        return MaxPool2D.apply(self, kernel_size=kernel_size, stride=stride)
+
+    def avg_pool2d(self, kernel_size: int, stride: int | None = None) -> Tensor:
+        """2D average pooling. stride defaults to kernel_size (non-overlapping windows)."""
+        return AvgPool2D.apply(self, kernel_size=kernel_size, stride=stride)
 
     @property
     def T(self) -> Tensor:

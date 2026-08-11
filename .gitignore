@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# MNIST cache (downloaded dataset files)
+examples/.mnist_cache/

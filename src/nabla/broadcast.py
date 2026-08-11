@@ -14,4 +14,7 @@ def unbroadcast(grad: NDArray, target_shape: tuple[int, ...]) -> NDArray:
     """
     while grad.ndim > len(target_shape):
         grad = grad.sum(axis=0)
+    for axis, (grad_dim, target_dim) in enumerate(zip(grad.shape, target_shape)):
+        if target_dim == 1 and grad_dim != 1:
+            grad = grad.sum(axis=axis, keepdims=True)
     return grad

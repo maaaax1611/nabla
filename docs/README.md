@@ -1,0 +1,23 @@
+# nabla docs
+
+nabla is a small automatic differentiation library built on NumPy, modeled on
+PyTorch's design. These docs walk through the ideas behind each building
+block — the math, the derivation of the backward pass, and how that maps
+onto the actual code — rather than just restating what the code does.
+
+Read them in order if you're new to the codebase; each one builds on the
+last.
+
+1. [Autodiff basics](01-autodiff.md) — `Tensor`, `Function`, the computational
+   graph, and how `backward()` turns the chain rule into a topological sort.
+2. [Conv2D](02-conv2d.md) — 2D convolution via the im2col trick.
+3. [Pooling](03-pooling.md) — max and average pooling, and why their
+   gradients look so different from each other.
+4. [BatchNorm2D](04-batchnorm.md) — batch normalization, with the full
+   chain-rule derivation through the batch mean and variance.
+5. [Softmax + Cross-Entropy](05-softmax-cross-entropy.md) — why softmax and
+   cross-entropy are implemented as a single fused op, and how that produces
+   one of the simplest gradients in the whole library.
+
+Each doc also calls out real bugs that came up while implementing these ops —
+they're often more informative than the happy path.

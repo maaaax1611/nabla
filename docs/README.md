@@ -18,6 +18,9 @@ last.
 5. [Softmax + Cross-Entropy](05-softmax-cross-entropy.md) — why softmax and
    cross-entropy are implemented as a single fused op, and how that produces
    one of the simplest gradients in the whole library.
+6. [Dropout](06-dropout.md) — regularization via random masking, why it's
+   the only op in nabla that isn't a pure function of its input, and how
+   that changes the way its gradient gets tested.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

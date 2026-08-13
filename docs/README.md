@@ -33,6 +33,9 @@ last.
 10. [Multi-Head Attention](10-multi-head-attention.md) — splitting Q/K/V
     into heads via reshape + transpose, and why single-head attention is
     just the `num_heads=1` case, not separate code.
+11. [Embedding](11-embedding.md) — a learnable lookup table, and why its
+    backward needs the same scatter-accumulate trick as `MaxPool2D` once
+    an ID repeats within a call.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

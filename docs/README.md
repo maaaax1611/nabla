@@ -24,6 +24,9 @@ last.
 7. [LayerNorm](07-layernorm.md) — per-sample normalization instead of
    BatchNorm2D's per-batch statistics, and why that means no running stats
    and no train/eval split.
+8. [Softmax](08-softmax.md) — the standalone op, and why its backward pass
+   needs softmax's actual Jacobian-vector product instead of the shortcut
+   `SoftmaxCrossEntropy` gets to take.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

@@ -43,40 +43,91 @@ this uses the **biased** variance (divide by $N$, not $N{-}1$) — the same
 convention PyTorch and every other framework uses for the normalization
 itself.
 
-## Backward, derived step by step
+## Backward, derived from the computational graph
 
 This is the one op in nabla where the backward pass genuinely needs the
 full chain rule, because $\mu$ and $\sigma^2$ are each themselves functions
 of *every* element of $x$ — so $\partial L/\partial x$ has to account for
 $x$'s effect on the output both directly (through $\hat x$) and indirectly
-(through $\mu$ and $\sigma^2$).
+(through $\mu$ and $\sigma^2$). The cleanest way to see *why* that's true —
+and to derive the gradient without having to trust a closed-form formula on
+faith — is to stop treating `out = gamma * x_hat + beta` as one big
+expression and instead break it into the atomic operations that actually
+produce it, one node per operation:
 
-**1. The two easy ones.** $\beta$ and $\gamma$ only affect the output
-through simple addition/multiplication, so their gradients are the
-straightforward sums:
+```mermaid
+graph LR
+    x["x"] --> muNode["mu<br/>mean(x)"]
+    x --> subNode(("−"))
+    muNode --> subNode
+    subNode --> xmu["xmu<br/>x − mu"]
+    xmu --> sqNode(("²"))
+    sqNode --> sq["sq<br/>xmu²"]
+    sq --> varNode["var<br/>mean(sq)"]
+    varNode --> sqrtNode(("√ ·+ε"))
+    sqrtNode --> sqrtvar["sqrtvar<br/>√(var+ε)"]
+    sqrtvar --> invNode(("1/·"))
+    invNode --> ivar["ivar<br/>1/sqrtvar"]
+    xmu --> mulNode1(("×"))
+    ivar --> mulNode1
+    mulNode1 --> xhat["xhat<br/>xmu · ivar"]
+    xhat --> mulNode2(("×"))
+    gamma["gamma"] --> mulNode2
+    mulNode2 --> gammax["gammax<br/>gamma · xhat"]
+    gammax --> addNode(("+"))
+    beta["beta"] --> addNode
+    addNode --> out["out"]
+```
+
+Every arrow is one local, easy-to-differentiate operation (`−`, `²`, a
+mean, `√`, `1/·`, `×`, `+`). `backward()` just walks this graph
+right-to-left: at each node, multiply the gradient flowing in from the
+right by that node's *local* derivative, and where an arrow forked into two
+uses on the way forward (every value that feeds more than one downstream
+node), the gradients flowing back **add up** at that fork. `x` is exactly
+such a fork — it feeds `mu` *and* the subtraction directly — which is the
+graph's way of showing the "direct vs. indirect path" mentioned above
+before you even write a formula.
+
+Walking backward from `out` (this is exactly [Kratzert's derivation for
+batchnorm](https://kratzert.github.io/2016/02/12/understanding-the-gradient-flow-through-the-batch-normalization-layer.html),
+adapted to nabla's per-channel axes):
+
+| node | local derivative | gradient produced |
+| --- | --- | --- |
+| `addNode` (`out = gammax + beta`) | $\partial\text{out}/\partial\text{gammax}=1$, $\partial\text{out}/\partial\beta=1$ | `grad_gammax = grad_out`; `grad_beta = sum(grad_out)` over every axis except channels |
+| `mulNode2` (`gammax = gamma · xhat`) | $\partial\text{gammax}/\partial\hat x=\gamma$, $\partial\text{gammax}/\partial\gamma=\hat x$ | `grad_xhat = grad_gammax * gamma`; `grad_gamma = sum(grad_gammax * xhat)` |
+| `mulNode1` (`xhat = xmu · ivar`) | $\partial\hat x/\partial x_\mu=\text{ivar}$, $\partial\hat x/\partial\text{ivar}=x_\mu$ | `grad_xmu_1 = grad_xhat * ivar` (first contribution to `xmu`); `grad_ivar = sum(grad_xhat * xmu)` (`ivar` is one shared scalar per channel, so its uses across every element of the channel all add up here) |
+| `invNode` (`ivar = 1/sqrtvar`) | $\partial\,\text{ivar}/\partial\,\text{sqrtvar}=-1/\text{sqrtvar}^2$ | `grad_sqrtvar = grad_ivar * -1/sqrtvar**2` |
+| `sqrtNode` (`sqrtvar = sqrt(var+eps)`) | $\partial\,\text{sqrtvar}/\partial\,\text{var}=\tfrac12(\text{var}+\varepsilon)^{-1/2}$ | `grad_var = grad_sqrtvar * 0.5 * (var+eps)**-0.5` |
+| `varNode` (`var = mean(sq)`) | each of the $N$ elements of `sq` contributes $1/N$ | `grad_sq = grad_var / N`, broadcast back over every element |
+| `sqNode` (`sq = xmu**2`) | $\partial\,\text{sq}/\partial x_\mu = 2 x_\mu$ | `grad_xmu_2 = grad_sq * 2 * xmu` (second contribution to `xmu`) |
+| **fork: `xmu`** | `xmu` fed both `sqNode` and `mulNode1` on the way forward | `grad_xmu = grad_xmu_1 + grad_xmu_2` |
+| `subNode` (`xmu = x - mu`) | $\partial x_\mu/\partial x=1$, $\partial x_\mu/\partial\mu=-1$ | `grad_x_1 = grad_xmu` (first contribution to `x`); `grad_mu = -sum(grad_xmu)` |
+| `muNode` (`mu = mean(x)`) | each of the $N$ elements of `x` contributes $1/N$ | `grad_x_2 = grad_mu / N`, broadcast back over every element |
+| **fork: `x`** | `x` fed both `muNode` and `subNode` on the way forward | `grad_x = grad_x_1 + grad_x_2` |
+
+That's it — no step required more calculus than "derivative of $x^2$" or
+"derivative of $1/x$". The closed-form formulas from the section above are
+just this same table with the intermediate `sqrtvar`/`ivar`/`sq` nodes
+algebraically substituted away, which is also exactly what the code below
+does: it never materializes `sq`, `sqrtvar` or `ivar` as separate arrays,
+it folds their local derivatives directly into `grad_var` and `grad_mean`.
+
+**Recap in closed form**, for reference against the code:
 
 $$
 \frac{\partial L}{\partial \beta} = \sum \frac{\partial L}{\partial \text{out}} \qquad
 \frac{\partial L}{\partial \gamma} = \sum \frac{\partial L}{\partial \text{out}} \cdot \hat{x}
 $$
 
-**2. Gradient w.r.t. $\hat x$.** Just undo the scale by $\gamma$:
-
 $$
 \frac{\partial L}{\partial \hat{x}} = \frac{\partial L}{\partial \text{out}} \cdot \gamma
 $$
 
-**3. Gradient w.r.t. $\sigma^2$.** $\hat x$ depends on $\sigma^2$ through
-$(\sigma^2 + \varepsilon)^{-1/2}$. Every element of $\hat x$ (across the
-whole channel) depends on the same $\sigma^2$, so their contributions sum:
-
 $$
 \frac{\partial L}{\partial \sigma^2} = \sum \frac{\partial L}{\partial \hat{x}} \cdot (x - \mu) \cdot \left(-\tfrac{1}{2}\right)(\sigma^2 + \varepsilon)^{-3/2}
 $$
-
-**4. Gradient w.r.t. $\mu$.** This is the subtle one — $\mu$ affects
-$\hat{x}$ *and* $\sigma^2$ (which itself depends on $\mu$), so there are
-**two paths** back to $\mu$ and both need to be added:
 
 $$
 \frac{\partial L}{\partial \mu} =
@@ -84,10 +135,6 @@ $$
 \;+\;
 \underbrace{\frac{\partial L}{\partial \sigma^2} \cdot \frac{1}{N}\sum -2(x-\mu)}_{\text{indirect path, through } \sigma^2}
 $$
-
-**5. Gradient w.r.t. $x$.** Finally, $x$ feeds into $\hat x$ directly *and*
-into both $\mu$ and $\sigma^2$ (each of which is itself an average over all
-$N$ elements, so each element of $x$ gets $1/N$ of their gradient):
 
 $$
 \frac{\partial L}{\partial x} =

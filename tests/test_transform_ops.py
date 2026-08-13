@@ -2,6 +2,25 @@ from nabla.tensor import Tensor
 import numpy as np
 
 
+def numerical_gradient(f, t, grad_output, eps=1e-5):
+    """Central-difference gradient of sum(f() * grad_output) w.r.t. t.data."""
+    grad = np.zeros_like(t.data)
+    it = np.nditer(t.data, flags=["multi_index"])
+    for _ in it:
+        idx = it.multi_index
+        original = t.data[idx]
+
+        t.data[idx] = original + eps
+        out_plus = f().copy()
+
+        t.data[idx] = original - eps
+        out_minus = f().copy()
+
+        t.data[idx] = original
+        grad[idx] = np.sum((out_plus - out_minus) / (2 * eps) * grad_output)
+    return grad
+
+
 class TestMatMul:
     def test_forward(self):
         a = Tensor(np.array([[1, 2], [3, 4]]))
@@ -16,13 +35,68 @@ class TestMatMul:
         c = a.matmul(b)
         grad_output = np.array([[1.0, 1.0], [1.0, 1.0]])
         c.backward(grad_output)
-        
+
         # Expected gradients
         expected_grad_a = np.dot(grad_output, b.data.T)
         expected_grad_b = np.dot(a.data.T, grad_output)
-        
+
         assert np.allclose(a.grad, expected_grad_a)
         assert np.allclose(b.grad, expected_grad_b)
+
+    def test_forward_batched(self):
+        # (batch, m, k) @ (batch, k, n) -> (batch, m, n), matmul'd
+        # independently per batch element, like np.matmul
+        np.random.seed(0)
+        a = Tensor(np.random.randn(3, 4, 5))
+        b = Tensor(np.random.randn(3, 5, 6))
+        c = a.matmul(b)
+        expected = np.matmul(a.data, b.data)
+        assert c.data.shape == (3, 4, 6)
+        assert np.allclose(c.data, expected)
+
+    def test_forward_broadcasts_shared_weight_across_batch(self):
+        # a 2D "weight" matrix shared across a batched input, like a
+        # Linear layer applied per-sequence-position
+        np.random.seed(1)
+        a = Tensor(np.random.randn(2, 4, 5))  # (batch, seq, in)
+        b = Tensor(np.random.randn(5, 6))  # (in, out), no batch axis
+        c = a.matmul(b)
+        expected = np.matmul(a.data, b.data)
+        assert c.data.shape == (2, 4, 6)
+        assert np.allclose(c.data, expected)
+
+    def test_backward_matches_numerical_gradient_batched(self):
+        np.random.seed(2)
+        a = Tensor(np.random.randn(3, 4, 5), requires_grad=True)
+        b = Tensor(np.random.randn(3, 5, 6), requires_grad=True)
+
+        def forward():
+            return a.matmul(b).data
+
+        grad_output = np.random.randn(*forward().shape)
+        c = a.matmul(b)
+        c.backward(grad_output)
+
+        assert np.allclose(a.grad, numerical_gradient(forward, a, grad_output), atol=1e-6)
+        assert np.allclose(b.grad, numerical_gradient(forward, b, grad_output), atol=1e-6)
+
+    def test_backward_unbroadcasts_shared_weight_gradient(self):
+        # b has no batch axis, so its gradient must be summed back down
+        # from (batch, ...) to b's own (in, out) shape
+        np.random.seed(3)
+        a = Tensor(np.random.randn(2, 4, 5), requires_grad=True)
+        b = Tensor(np.random.randn(5, 6), requires_grad=True)
+
+        def forward():
+            return a.matmul(b).data
+
+        grad_output = np.random.randn(*forward().shape)
+        c = a.matmul(b)
+        c.backward(grad_output)
+
+        assert b.grad.shape == b.data.shape
+        assert np.allclose(a.grad, numerical_gradient(forward, a, grad_output), atol=1e-6)
+        assert np.allclose(b.grad, numerical_gradient(forward, b, grad_output), atol=1e-6)
 
 
 class TestReshape:

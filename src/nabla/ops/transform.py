@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from numpy.typing import NDArray
 
+from nabla.broadcast import unbroadcast
 from nabla.function import Function
 
 if TYPE_CHECKING:
@@ -12,17 +13,27 @@ if TYPE_CHECKING:
 
 
 class MatMul(Function):
-    """Matrix multiplication: z = a @ b."""
+    """Matrix multiplication: z = a @ b.
+
+    Supports batched matmul: any leading axes are treated as batch
+    dimensions (broadcast against each other, exactly like np.matmul),
+    and the actual matrix product happens over the trailing two axes.
+    Plain 2D matrices are just the batch-free special case - np.matmul
+    behaves identically to np.dot there.
+    """
 
     def forward(self, a: Tensor, b: Tensor) -> NDArray:
         self.save_for_backward(a, b)
-        return np.dot(a.data, b.data)
+        return np.matmul(a.data, b.data)
 
     def backward(self, grad_output: NDArray) -> tuple[NDArray, NDArray]:
         a, b = self.saved_tensors
-        grad_a = np.dot(grad_output, b.data.T)
-        grad_b = np.dot(a.data.T, grad_output)
-        return grad_a, grad_b
+        # batched matmul backward: swap the trailing two axes only, never
+        # the batch axes, then reduce away any axes that were broadcast
+        # (e.g. a 2D weight matrix shared across a batched input)
+        grad_a = np.matmul(grad_output, np.swapaxes(b.data, -1, -2))
+        grad_b = np.matmul(np.swapaxes(a.data, -1, -2), grad_output)
+        return unbroadcast(grad_a, a.data.shape), unbroadcast(grad_b, b.data.shape)
 
 class Reshape(Function):
     """Reshape tensor to a new shape."""

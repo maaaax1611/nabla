@@ -43,6 +43,9 @@ last.
     LayerNorm, and a feedforward sublayer into one reusable unit, and why
     residual connections and pre-norm placement matter for training deep
     stacks of them.
+14. [ModuleList](14-module-list.md) — why stacking layers in a plain
+    Python list silently hides their parameters, and how `ModuleList`
+    fixes that with no new introspection logic at all.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

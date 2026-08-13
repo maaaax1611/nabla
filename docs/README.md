@@ -39,6 +39,10 @@ last.
 12. [Positional Encoding](12-positional-encoding.md) — the fixed sin/cos
     signal that gives attention a sense of order, and why the specific
     formula makes relative positions learnable as a linear operation.
+13. [Transformer Block](13-transformer-block.md) — assembling Attention,
+    LayerNorm, and a feedforward sublayer into one reusable unit, and why
+    residual connections and pre-norm placement matter for training deep
+    stacks of them.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

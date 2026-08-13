@@ -25,7 +25,7 @@ $$
 where $s$ is the stride, and the output spatial size is
 
 $$
-\text{out\_h} = \left\lfloor \frac{H + 2 \cdot \text{padding} - kh}{s} \right\rfloor + 1 \qquad (\text{analogous for out\_w})
+\text{out}_h = \left\lfloor \frac{H + 2 \cdot \text{padding} - kh}{s} \right\rfloor + 1 \qquad (\text{analogous for } \text{out}_w)
 $$
 
 ## im2col: turning convolution into one matrix multiply

@@ -50,22 +50,24 @@ $$
 split into a diagonal term ($j=k$: $p_k(1-p_k)$) and an off-diagonal term
 ($j \ne k$: $-p_j p_k$). For a $K$-class row that's a full $K \times K$
 matrix — never actually built in the code below, because the chain rule
-collapses it to something far cheaper:
+collapses it to something far cheaper. Writing $g_j$ for the incoming
+gradient (`grad_output` in code, i.e. the $j$-th component of
+$\partial L/\partial p$):
 
 $$
 \frac{\partial L}{\partial x_k} = \sum_j \frac{\partial L}{\partial p_j}\cdot\frac{\partial p_j}{\partial x_k}
-= \sum_j \text{grad\_output}_j \cdot p_j(\delta_{jk} - p_k)
+= \sum_j g_j \cdot p_j(\delta_{jk} - p_k)
 $$
 
 Split the sum at $\delta_{jk}$ — one term survives only at $j=k$, the other
 has $p_k$ constant in $j$ and factors out:
 
 $$
-= \underbrace{\text{grad\_output}_k \cdot p_k}_{j=k \text{ term}} \;-\; \underbrace{p_k \sum_j \text{grad\_output}_j \cdot p_j}_{p_k \text{ factored out}}
+= \underbrace{g_k \cdot p_k}_{j=k \text{ term}} \;-\; \underbrace{p_k \sum_j g_j \cdot p_j}_{p_k \text{ factored out}}
 $$
 
 $$
-\frac{\partial L}{\partial x_k} = p_k \left( \text{grad\_output}_k - \sum_j \text{grad\_output}_j \cdot p_j \right)
+\frac{\partial L}{\partial x_k} = p_k \left( g_k - \sum_j g_j \cdot p_j \right)
 $$
 
 `sum_j grad_output_j * p_j` is one scalar per row — the probability-weighted

@@ -27,6 +27,9 @@ last.
 8. [Softmax](08-softmax.md) — the standalone op, and why its backward pass
    needs softmax's actual Jacobian-vector product instead of the shortcut
    `SoftmaxCrossEntropy` gets to take.
+9. [Scaled Dot-Product Attention](09-attention.md) — why, unlike every op
+   before it, this one needed no new backward derivation at all — just
+   batched matmul and composition of ops that already existed.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

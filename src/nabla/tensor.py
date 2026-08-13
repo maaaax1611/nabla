@@ -8,6 +8,7 @@ from nabla.ops.activation import ReLU, Sigmoid
 from nabla.ops.basic import Add, Divide, Multiply, Subtract
 from nabla.ops.conv import Conv2D
 from nabla.ops.dropout import Dropout
+from nabla.ops.layernorm import LayerNorm
 from nabla.ops.pooling import AvgPool2D, MaxPool2D
 from nabla.ops.reduce import Mean, Sum
 from nabla.ops.transform import MatMul, Reshape, Transpose
@@ -137,6 +138,10 @@ class Tensor:
     def dropout(self, p: float = 0.5) -> Tensor:
         """Apply inverted dropout element-wise, zeroing each element with probability p."""
         return Dropout.apply(self, p=p)
+
+    def layer_norm(self, gamma: Tensor, beta: Tensor, eps: float = 1e-5) -> Tensor:
+        """Normalize over the last axis, using per-sample statistics (no batch dependency)."""
+        return LayerNorm.apply(self, gamma, beta, eps=eps)
 
     def __repr__(self) -> str:
         return f"Tensor({self.data}, requires_grad={self.requires_grad})"

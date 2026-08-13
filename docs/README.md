@@ -30,6 +30,9 @@ last.
 9. [Scaled Dot-Product Attention](09-attention.md) — why, unlike every op
    before it, this one needed no new backward derivation at all — just
    batched matmul and composition of ops that already existed.
+10. [Multi-Head Attention](10-multi-head-attention.md) — splitting Q/K/V
+    into heads via reshape + transpose, and why single-head attention is
+    just the `num_heads=1` case, not separate code.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

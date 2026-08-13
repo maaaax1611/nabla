@@ -44,9 +44,9 @@ class Module:
         for param in self.parameters():
             param.grad = None
 
-    def __call__(self, *args: Tensor) -> Tensor:
-        return self.forward(*args)
+    def __call__(self, *args: Tensor, **kwargs) -> Tensor:
+        return self.forward(*args, **kwargs)
 
-    def forward(self, *args: Tensor) -> Tensor:
+    def forward(self, *args: Tensor, **kwargs) -> Tensor:
         """Define the forward computation. Must be overridden by subclasses."""
         raise NotImplementedError("Subclasses must implement the forward method.")

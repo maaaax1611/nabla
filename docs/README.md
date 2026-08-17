@@ -46,6 +46,9 @@ last.
 14. [ModuleList](14-module-list.md) — why stacking layers in a plain
     Python list silently hides their parameters, and how `ModuleList`
     fixes that with no new introspection logic at all.
+15. [Example: Character-Level Transformer on Tiny Shakespeare](15-shakespeare-example.md) —
+    every building block from docs 06-14 assembled into an actual
+    trained model, with a causal mask for next-character prediction.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

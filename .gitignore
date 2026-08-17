@@ -219,3 +219,6 @@ __marimo__/
 
 # MNIST cache (downloaded dataset files)
 examples/.mnist_cache/
+
+# Tiny Shakespeare cache (downloaded dataset file)
+examples/.shakespeare_cache/

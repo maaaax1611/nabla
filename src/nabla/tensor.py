@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
+from nabla.backend import get_array_module, to_device
 from nabla.function import Function
 from nabla.ops.activation import ReLU, Sigmoid
 from nabla.ops.basic import Add, Divide, Multiply, Subtract
@@ -28,11 +29,25 @@ class Tensor:
     """
 
     def __init__(self, data: ArrayLike, requires_grad: bool = False) -> None:
-        self.data: NDArray = np.array(data) if not isinstance(data, np.ndarray) else data
+        xp = get_array_module(data)
+        self.data: NDArray = data if isinstance(data, xp.ndarray) else np.array(data)
         self.requires_grad = requires_grad
         self.grad: NDArray | None = None
         self._ctx: Function | None = None
         self._prev: tuple[Tensor, ...] = ()
+
+    def to(self, device: str) -> Tensor:
+        """Move this tensor's data (and gradient, if any) to "cpu" or "cuda".
+
+        Mutates and returns self, mirroring PyTorch's in-place-by-default
+        `.to()` for leaf tensors - there's no autograd graph to preserve
+        across a device move here, so there's nothing an out-of-place
+        version would need to protect.
+        """
+        self.data = to_device(self.data, device)
+        if self.grad is not None:
+            self.grad = to_device(self.grad, device)
+        return self
 
     def backward(self, grad: NDArray | None = None) -> None:
         """Compute gradients via reverse-mode automatic differentiation.
@@ -41,7 +56,8 @@ class Tensor:
             grad: The initial gradient. If None, defaults to ones with the same shape as data.
         """
         if grad is None:
-            self.grad = np.ones_like(self.data)
+            xp = get_array_module(self.data)
+            self.grad = xp.ones_like(self.data)
         else:
             self.grad = grad
 

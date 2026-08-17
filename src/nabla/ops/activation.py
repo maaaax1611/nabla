@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
 from numpy.typing import NDArray
 
+from nabla.backend import get_array_module
 from nabla.function import Function
 
 if TYPE_CHECKING:
@@ -15,7 +15,8 @@ class ReLU(Function):
     """ReLU activation"""
     def forward(self, x: Tensor) -> NDArray:
         self.save_for_backward(x)
-        return np.maximum(0, x.data)
+        xp = get_array_module(x.data)
+        return xp.maximum(0, x.data)
 
     def backward(self, grad_output: NDArray) -> tuple[NDArray]:
         (x,) = self.saved_tensors
@@ -25,7 +26,8 @@ class ReLU(Function):
 class Sigmoid(Function):
     """Sigmoid activation"""
     def forward(self, x: Tensor) -> NDArray:
-        sigmoid = 1 / (1 + np.exp(-x.data))
+        xp = get_array_module(x.data)
+        sigmoid = 1 / (1 + xp.exp(-x.data))
         self.save_for_backward(sigmoid)
         return sigmoid
 

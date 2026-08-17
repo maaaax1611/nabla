@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-from numpy.lib.stride_tricks import sliding_window_view
 from numpy.typing import NDArray
 
+from nabla.backend import get_array_module
 from nabla.function import Function
 
 if TYPE_CHECKING:
@@ -31,12 +30,13 @@ class MaxPool2D(Function):
         self.stride = stride if stride is not None else kernel_size
 
     def forward(self, x: Tensor) -> NDArray:
+        xp = get_array_module(x.data)
         self.input_shape = x.data.shape
         self.out_h = (x.data.shape[2] - self.kernel_size) // self.stride + 1
         self.out_w = (x.data.shape[3] - self.kernel_size) // self.stride + 1
 
         # extract every kh x kw patch, then keep only every `stride`-th one
-        windows = sliding_window_view(x.data, (self.kernel_size, self.kernel_size), axis=(2, 3))
+        windows = xp.lib.stride_tricks.sliding_window_view(x.data, (self.kernel_size, self.kernel_size), axis=(2, 3))
         # windows: (batch, channels, out_h, out_w, kh, kw)
         windows = windows[:, :, :: self.stride, :: self.stride, :, :]
 
@@ -45,24 +45,25 @@ class MaxPool2D(Function):
 
         # remember which position in each window held the max, needed to route
         # the gradient back to exactly that position in backward
-        self.argmax = np.argmax(windows, axis=-1)  # (batch, channels, out_h, out_w)
-        return np.max(windows, axis=-1)
+        self.argmax = xp.argmax(windows, axis=-1)  # (batch, channels, out_h, out_w)
+        return xp.max(windows, axis=-1)
 
     def backward(self, grad_output: NDArray) -> tuple[NDArray]:
         # grad_output: (batch, channels, out_h, out_w)
-        grad_x = np.zeros(self.input_shape, dtype=grad_output.dtype)
+        xp = get_array_module(grad_output)
+        grad_x = xp.zeros(self.input_shape, dtype=grad_output.dtype)
 
-        batch_idx = np.arange(self.input_shape[0])[:, None]  # (batch, 1)
-        channel_idx = np.arange(self.input_shape[1])[None, :]  # (1, channels)
+        batch_idx = xp.arange(self.input_shape[0])[:, None]  # (batch, 1)
+        channel_idx = xp.arange(self.input_shape[1])[None, :]  # (1, channels)
 
         # scatter each output position's gradient back to the input position
         # that produced the max, accumulating where windows overlap
         for i in range(self.out_h):
             for j in range(self.out_w):
-                di, dj = np.unravel_index(self.argmax[:, :, i, j], (self.kernel_size, self.kernel_size))
+                di, dj = xp.unravel_index(self.argmax[:, :, i, j], (self.kernel_size, self.kernel_size))
                 h_idx = i * self.stride + di
                 w_idx = j * self.stride + dj
-                np.add.at(grad_x, (batch_idx, channel_idx, h_idx, w_idx), grad_output[:, :, i, j])
+                xp.add.at(grad_x, (batch_idx, channel_idx, h_idx, w_idx), grad_output[:, :, i, j])
 
         return (grad_x,)
 
@@ -80,20 +81,22 @@ class AvgPool2D(Function):
         self.stride = stride if stride is not None else kernel_size
 
     def forward(self, x: Tensor) -> NDArray:
+        xp = get_array_module(x.data)
         self.input_shape = x.data.shape
         self.out_h = (x.data.shape[2] - self.kernel_size) // self.stride + 1
         self.out_w = (x.data.shape[3] - self.kernel_size) // self.stride + 1
 
-        windows = sliding_window_view(x.data, (self.kernel_size, self.kernel_size), axis=(2, 3))
+        windows = xp.lib.stride_tricks.sliding_window_view(x.data, (self.kernel_size, self.kernel_size), axis=(2, 3))
         # windows: (batch, channels, out_h, out_w, kh, kw)
         windows = windows[:, :, :: self.stride, :: self.stride, :, :]
         windows = windows.reshape(*windows.shape[:4], -1)  # (batch, channels, out_h, out_w, kh*kw)
 
-        return np.mean(windows, axis=-1)
+        return xp.mean(windows, axis=-1)
 
     def backward(self, grad_output: NDArray) -> tuple[NDArray]:
         # grad_output: (batch, channels, out_h, out_w)
-        grad_x = np.zeros(self.input_shape)
+        xp = get_array_module(grad_output)
+        grad_x = xp.zeros(self.input_shape)
 
         for i in range(self.out_h):
             for j in range(self.out_w):

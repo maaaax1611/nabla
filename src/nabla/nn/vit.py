@@ -3,6 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 import nabla.functional as F
+from nabla.backend import get_array_module
 from nabla.nn.container import ModuleList
 from nabla.nn.layernorm import LayerNorm
 from nabla.nn.linear import Linear
@@ -80,7 +81,8 @@ class VisionTransformer(Module):
         batch = images.data.shape[0]
         x = self.patch_embed(images)  # (batch, num_patches, embed_dim)
 
-        cls_tokens = self.cls_token + Tensor(np.zeros((batch, 1, self.cls_token.data.shape[-1])))
+        xp = get_array_module(self.cls_token.data)
+        cls_tokens = self.cls_token + Tensor(xp.zeros((batch, 1, self.cls_token.data.shape[-1])))
         x = F.concat([cls_tokens, x], axis=1)  # (batch, num_patches + 1, embed_dim)
         x = x + self.pos_embedding
 

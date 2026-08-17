@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from nabla.backend import is_gpu_array
 from nabla.nn.module import Module
 from nabla.ops.loss import SoftmaxCrossEntropy
 from nabla.tensor import Tensor
@@ -59,6 +60,12 @@ class CrossEntropyLoss(Module):
             raise TypeError("logits must be a Tensor.")
         if not isinstance(targets, Tensor):
             targets = Tensor(np.asarray(targets))
+        if is_gpu_array(logits.data) and not is_gpu_array(targets.data):
+            # convenience: labels commonly come straight from a CPU
+            # DataLoader even when the model has been moved to the GPU -
+            # match them to logits' device rather than forcing every
+            # caller to remember to move targets too
+            targets = targets.to("cuda")
         if logits.data.ndim != 2:
             raise ValueError(f"Expected logits of shape (batch, num_classes), got {logits.data.shape}.")
         if targets.data.shape != (logits.data.shape[0],):

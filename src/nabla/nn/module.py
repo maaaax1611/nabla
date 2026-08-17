@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import numpy as np
+
+from nabla.backend import is_gpu_array, to_device
 from nabla.tensor import Tensor
 
 
@@ -38,6 +41,27 @@ class Module:
             elif isinstance(value, Module):
                 params.extend(value.parameters())
         return params
+
+    def to(self, device: str) -> "Module":
+        """Move every parameter, buffer, and submodule to "cpu" or "cuda".
+
+        Recognizes three kinds of attributes: `Tensor`s (parameters like
+        weights/biases, moved via Tensor.to - covers both trainable
+        weights and fixed-but-Tensor-wrapped buffers like
+        VisionTransformer's CLS-token selector), plain ndarrays (fixed
+        buffers that were never wrapped in a Tensor, like
+        PositionalEncoding's sinusoidal table), and nested `Module`s
+        (recursed into). Anything else (plain Python state like `self.p`
+        on Dropout) is left untouched.
+        """
+        for name, value in self.__dict__.items():
+            if isinstance(value, Tensor):
+                value.to(device)
+            elif isinstance(value, Module):
+                value.to(device)
+            elif isinstance(value, np.ndarray) or is_gpu_array(value):
+                setattr(self, name, to_device(value, device))
+        return self
 
     def zero_grad(self) -> None:
         """Set gradients of all parameters to None."""

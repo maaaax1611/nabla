@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
-from numpy.lib.stride_tricks import sliding_window_view
 from numpy.typing import NDArray
 
+from nabla.backend import get_array_module
 from nabla.function import Function
 
 if TYPE_CHECKING:
@@ -31,9 +30,10 @@ class Conv2D(Function):
 
     def forward(self, x: Tensor, weight: Tensor, bias: Tensor) -> NDArray:
         self.save_for_backward(x, weight, bias)
+        xp = get_array_module(x.data)
 
         if self.padding > 0:
-            self.x_padded = np.pad(
+            self.x_padded = xp.pad(
                 x.data,
                 ((0, 0), (0, 0), (self.padding, self.padding), (self.padding, self.padding)),
                 mode="constant",
@@ -47,7 +47,7 @@ class Conv2D(Function):
         self.out_w = (x.data.shape[3] + 2 * self.padding - kw) // self.stride + 1
 
         # extract every kh x kw patch, then keep only every `stride`-th one
-        windows = sliding_window_view(self.x_padded, (kh, kw), axis=(2, 3))
+        windows = xp.lib.stride_tricks.sliding_window_view(self.x_padded, (kh, kw), axis=(2, 3))
         # windows: (batch, in_channels, out_h, out_w, kh, kw)
         windows = windows[:, :, :: self.stride, :: self.stride, :, :]
 
@@ -68,9 +68,10 @@ class Conv2D(Function):
     def backward(self, grad_output: NDArray) -> tuple[NDArray, NDArray, NDArray]:
         # grad_output: (batch, out_channels, out_h, out_w)
         _, weight, _ = self.saved_tensors
+        xp = get_array_module(grad_output)
         in_channels, kh, kw = weight.data.shape[1:]
 
-        grad_bias = np.sum(grad_output, axis=(0, 2, 3))  # (out_channels,)
+        grad_bias = xp.sum(grad_output, axis=(0, 2, 3))  # (out_channels,)
 
         # undo the forward transpose to match the (out_channels, batch*out_h*out_w) layout of `cols`
         grad_output_flat = grad_output.transpose(1, 0, 2, 3).reshape(grad_output.shape[1], -1)
@@ -84,7 +85,7 @@ class Conv2D(Function):
 
         # scatter each patch gradient back into its receptive field, accumulating
         # where windows overlap (stride < kernel size)
-        grad_x_padded = np.zeros_like(self.x_padded)
+        grad_x_padded = xp.zeros_like(self.x_padded)
         grad_cols = grad_cols.reshape(in_channels, kh, kw, self.batch_size, self.out_h, self.out_w)
 
         for i in range(self.out_h):

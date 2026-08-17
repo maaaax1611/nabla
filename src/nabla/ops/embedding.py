@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
 from numpy.typing import NDArray
 
+from nabla.backend import get_array_module
 from nabla.function import Function
 
 if TYPE_CHECKING:
@@ -35,9 +35,10 @@ class Embedding(Function):
         # scatter-accumulate: a repeated index must sum its gradient
         # contributions, not have the last one overwrite the others -
         # same np.add.at pattern as MaxPool2D's backward
-        grad_table = np.zeros(self.table_shape)
-        np.add.at(grad_table, self.indices, grad_output)
+        xp = get_array_module(grad_output)
+        grad_table = xp.zeros(self.table_shape)
+        xp.add.at(grad_table, self.indices, grad_output)
 
         # indices are integer IDs, never meaningful to differentiate
-        grad_indices = np.zeros_like(self.indices, dtype=float)
+        grad_indices = xp.zeros_like(self.indices, dtype=float)
         return grad_table, grad_indices

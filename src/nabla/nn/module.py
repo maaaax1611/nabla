@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import numpy as np
+from numpy.typing import NDArray
 
-from nabla.backend import is_gpu_array, to_device
+from nabla.backend import get_array_module, is_gpu_array, to_device
 from nabla.tensor import Tensor
 
 
@@ -62,6 +63,30 @@ class Module:
             elif isinstance(value, np.ndarray) or is_gpu_array(value):
                 setattr(self, name, to_device(value, device))
         return self
+
+    def state_dict(self) -> list[NDArray]:
+        """A CPU-resident snapshot of every parameter's values, in the
+        same order as `parameters()` - for checkpointing (see
+        `nabla/checkpoint.py`). Independent copies: mutating the
+        returned arrays, or continuing to train this module, never
+        changes the snapshot.
+        """
+        return [to_device(p.data, "cpu").copy() for p in self.parameters()]
+
+    def load_state_dict(self, state: list[NDArray]) -> None:
+        """Load parameter values from a `state_dict()` snapshot back into
+        this module's parameters (matched by `parameters()` order).
+
+        Each parameter's *current* device is preserved - loading a CPU
+        snapshot into a model already moved to the GPU keeps it on the
+        GPU, no separate `.to()` call needed after loading.
+        """
+        params = self.parameters()
+        if len(params) != len(state):
+            raise ValueError(f"Expected {len(params)} parameters, got {len(state)}.")
+        for param, value in zip(params, state):
+            xp = get_array_module(param.data)
+            param.data = xp.asarray(value)
 
     def zero_grad(self) -> None:
         """Set gradients of all parameters to None."""

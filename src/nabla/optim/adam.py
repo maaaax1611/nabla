@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from nabla.backend import get_array_module
+from nabla.backend import get_array_module, to_device
 from nabla.optim.optimizer import Optimizer
 from nabla.regularizers import Regularizer
 from nabla.tensor import Tensor
@@ -49,3 +49,18 @@ class Adam(Optimizer):
                 # Update parameters
                 xp = get_array_module(v_hat)
                 param.data -= self.lr * m_hat / (xp.sqrt(v_hat) + self.eps)
+
+    def state_dict(self) -> dict:
+        return {
+            "m": [to_device(m, "cpu").copy() for m in self.m],
+            "v": [to_device(v, "cpu").copy() for v in self.v],
+            "t": self.t,
+        }
+
+    def load_state_dict(self, state: dict) -> None:
+        if len(state["m"]) != len(self.m) or len(state["v"]) != len(self.v):
+            raise ValueError("Checkpointed Adam state doesn't match this optimizer's parameter count.")
+        for i in range(len(self.m)):
+            self.m[i] = get_array_module(self.m[i]).asarray(state["m"][i])
+            self.v[i] = get_array_module(self.v[i]).asarray(state["v"][i])
+        self.t = state["t"]

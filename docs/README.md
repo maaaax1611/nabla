@@ -49,6 +49,10 @@ last.
 15. [Example: Character-Level Transformer on Tiny Shakespeare](15-shakespeare-example.md) —
     every building block from docs 06-14 assembled into an actual
     trained model, with a causal mask for next-character prediction.
+16. [Concat](16-concat.md) — the first op that takes a variable number of
+    tensors, needed to prepend a learnable CLS token to a sequence, and
+    an off-by-one bug in its backward pass that numerical gradient
+    checking caught immediately.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

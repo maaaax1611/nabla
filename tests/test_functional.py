@@ -51,6 +51,12 @@ class TestFunctional:
         assert x.grad is not None
         assert x.grad.shape == x.data.shape
 
+    def test_concat_matches_np_concatenate(self):
+        a = Tensor(np.random.randn(2, 3))
+        b = Tensor(np.random.randn(2, 5))
+        out = F.concat([a, b], axis=1)
+        assert np.array_equal(out.data, np.concatenate([a.data, b.data], axis=1))
+
     def test_dropout_scales_survivors(self):
         np.random.seed(0)
         x = Tensor(np.ones((100, 100)))

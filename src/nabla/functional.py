@@ -16,6 +16,7 @@ from __future__ import annotations
 import numpy as np
 
 from nabla.ops.activation import ReLU, Sigmoid
+from nabla.ops.concat import Concat
 from nabla.ops.conv import Conv2D
 from nabla.ops.dropout import Dropout
 from nabla.ops.layernorm import LayerNorm
@@ -96,6 +97,11 @@ def sum(x: Tensor) -> Tensor:
 def mean(x: Tensor) -> Tensor:
     """Reduce all elements to a scalar by averaging."""
     return Mean.apply(x)
+
+
+def concat(tensors: list[Tensor], axis: int = 0) -> Tensor:
+    """Concatenate tensors along an existing axis."""
+    return Concat.apply(*tensors, axis=axis)
 
 
 def _swap_last_two_axes(t: Tensor) -> Tensor:

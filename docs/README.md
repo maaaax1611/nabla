@@ -64,6 +64,18 @@ last.
     dispatch trick that lets every op run on NumPy or CuPy unchanged,
     `Tensor`/`Module.to(device)`, and four device-mismatch bugs that
     only surfaced by actually running on a GPU.
+20. [Learning-Rate Schedules](20-lr-schedules.md) — why a scheduler is
+    just an external object mutating `optimizer.lr`, warmup + cosine
+    decay, and why that keeps it fully decoupled from the optimizer.
+21. [Gradient Clipping](21-gradient-clipping.md) — clipping one combined
+    norm across every parameter instead of each independently, so a
+    clipped update keeps its direction and only loses magnitude.
+22. [Checkpointing](22-checkpointing.md) — `state_dict()`/`load_state_dict()`
+    on `Module` and `Optimizer`, resuming a run (including its LR
+    schedule) from the last saved step instead of from scratch.
+23. [Logging](23-logging.md) — tracking metrics logged at different
+    step cadences (train loss every step, val loss every eval interval)
+    without padding gaps, exported as tidy/long-format CSV.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

@@ -222,3 +222,7 @@ examples/.mnist_cache/
 
 # Tiny Shakespeare cache (downloaded dataset file)
 examples/.shakespeare_cache/
+
+# Training run artifacts (checkpoints, logged metrics)
+examples/.shakespeare_checkpoint.pkl
+examples/.shakespeare_history.csv

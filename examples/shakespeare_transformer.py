@@ -14,11 +14,20 @@ on plain NumPy (no GPU), so the model and training budget here are kept
 deliberately small to finish in a reasonable time on a CPU. Don't expect
 Shakespeare-quality output - expect recognizable word-shapes and structure
 emerging from what started as random noise, which is the point.
+
+Also exercises the training-infrastructure pieces from docs/20 through
+docs/23: a warmup+cosine learning-rate schedule, global gradient-norm
+clipping, periodic checkpointing (re-running this script resumes from the
+last checkpoint instead of starting over), and metric logging to CSV.
 """
+
+import os
 
 import numpy as np
 from shakespeare_data import get_batch, load_shakespeare
 
+from nabla.checkpoint import load_checkpoint, save_checkpoint
+from nabla.logging import History
 from nabla.nn.container import ModuleList
 from nabla.nn.embedding import Embedding
 from nabla.nn.layernorm import LayerNorm
@@ -28,6 +37,8 @@ from nabla.nn.module import Module
 from nabla.nn.positional_encoding import PositionalEncoding
 from nabla.nn.transformer import TransformerBlock
 from nabla.optim.adam import Adam
+from nabla.optim.clip import clip_grad_norm_
+from nabla.optim.scheduler import WarmupCosineLR
 from nabla.tensor import Tensor
 
 
@@ -89,6 +100,10 @@ def generate(model: CharTransformerLM, tokenizer, prompt: str, num_new_tokens: i
     return tokenizer.decode(np.array(ids))
 
 
+CHECKPOINT_PATH = os.path.join(os.path.dirname(__file__), ".shakespeare_checkpoint.pkl")
+HISTORY_PATH = os.path.join(os.path.dirname(__file__), ".shakespeare_history.csv")
+
+
 def main() -> None:
     print("Loading Tiny Shakespeare (downloads + caches on first run)...")
     train_ids, val_ids, tokenizer = load_shakespeare()
@@ -98,6 +113,7 @@ def main() -> None:
     batch_size = 16
     steps = 1000
     eval_interval = 100
+    max_grad_norm = 1.0
 
     model = CharTransformerLM(
         vocab_size=tokenizer.vocab_size,
@@ -110,26 +126,47 @@ def main() -> None:
     )
     criterion = CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=3e-4)
+    scheduler = WarmupCosineLR(optimizer, warmup_steps=100, total_steps=steps, min_lr=3e-5)
     mask = causal_mask(block_size)
     rng = np.random.default_rng(0)
+    history = History()
+
+    start_step = 1
+    if os.path.exists(CHECKPOINT_PATH):
+        metadata = load_checkpoint(CHECKPOINT_PATH, model, optimizer)
+        start_step = metadata["step"] + 1
+        scheduler.step_count = metadata["step"]
+        print(f"Resumed from checkpoint at step {metadata['step']} (train loss was {metadata['train_loss']:.4f}).")
 
     print(f"Model parameters: {sum(p.data.size for p in model.parameters()):,}")
 
     model.train()
-    for step in range(1, steps + 1):
+    for step in range(start_step, steps + 1):
         X, y = get_batch(train_ids, block_size, batch_size, rng)
         loss = compute_loss(model, X, y, mask, criterion)
 
         model.zero_grad()
         loss.backward()
+        grad_norm = clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
         optimizer.step()
+        scheduler.step()
+
+        history.log(step, train_loss=float(loss.data), lr=optimizer.lr, grad_norm=grad_norm)
 
         if step % eval_interval == 0 or step == 1:
             model.eval()
             X_val, y_val = get_batch(val_ids, block_size, batch_size, rng)
             val_loss = compute_loss(model, X_val, y_val, mask, criterion)
             model.train()
-            print(f"Step {step:4d} | Train loss: {float(loss.data):.4f} | Val loss: {float(val_loss.data):.4f}")
+            history.log(step, val_loss=float(val_loss.data))
+            print(
+                f"Step {step:4d} | Train loss: {float(loss.data):.4f} | Val loss: {float(val_loss.data):.4f} "
+                f"| lr: {optimizer.lr:.2e} | grad_norm: {grad_norm:.2f}"
+            )
+            save_checkpoint(CHECKPOINT_PATH, model, optimizer, step=step, train_loss=float(loss.data))
+
+    history.to_csv(HISTORY_PATH)
+    print(f"\nTraining history written to {HISTORY_PATH}")
 
     print("\nSample generation (random weights would look like noise; compare to the loss trend above):")
     print(generate(model, tokenizer, prompt="\n", num_new_tokens=300, block_size=block_size))

@@ -44,6 +44,20 @@ class Optimizer:
         """Update parameters using their gradients. Must be overridden by subclasses."""
         raise NotImplementedError
 
+    def state_dict(self) -> dict:
+        """Optimizer-internal state to checkpoint (e.g. Adam's momentum
+        buffers), for `nabla/checkpoint.py`. Empty by default - stateless
+        optimizers like SGD have nothing beyond `.lr` to save, and `.lr`
+        is passed to the constructor / handled by a scheduler, not
+        checkpointed here.
+        """
+        return {}
+
+    def load_state_dict(self, state: dict) -> None:
+        """Restore optimizer-internal state saved by `state_dict()`. No-op
+        by default - see `state_dict()`.
+        """
+
     def zero_grad(self) -> None:
         """Set gradients of all parameters to None."""
         for param in self.parameters:

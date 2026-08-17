@@ -53,6 +53,13 @@ last.
     tensors, needed to prepend a learnable CLS token to a sequence, and
     an off-by-one bug in its backward pass that numerical gradient
     checking caught immediately.
+17. [Vision Transformer (ViT)](17-vision-transformer.md) — turning images
+    into patch sequences via `Conv2D`, a CLS token via `Concat`, a
+    learned positional embedding, and picking a single sequence
+    position out via `MatMul` instead of adding a new indexing op.
+18. [Example: MNIST with a Vision Transformer](18-vit-example.md) — training
+    `VisionTransformer` end to end, and why it trails a CNN's accuracy
+    at the same budget (a real, well-known ViT property, not a bug).
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

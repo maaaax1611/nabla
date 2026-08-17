@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
 from numpy.typing import NDArray
 
+from nabla.backend import get_array_module
 from nabla.function import Function
 
 if TYPE_CHECKING:
@@ -40,12 +40,13 @@ class LayerNorm(Function):
 
     def forward(self, x: Tensor, gamma: Tensor, beta: Tensor) -> NDArray:
         self.save_for_backward(gamma, beta)
+        xp = get_array_module(x.data)
 
-        mean = np.mean(x.data, axis=-1, keepdims=True)
-        self.var = np.var(x.data, axis=-1, keepdims=True, ddof=0)
+        mean = xp.mean(x.data, axis=-1, keepdims=True)
+        self.var = xp.var(x.data, axis=-1, keepdims=True, ddof=0)
 
         self.x_centered = x.data - mean
-        self.x_hat = self.x_centered / np.sqrt(self.var + self.eps)
+        self.x_hat = self.x_centered / xp.sqrt(self.var + self.eps)
 
         self.N = x.data.shape[-1]  # elements per normalized row
 
@@ -53,28 +54,29 @@ class LayerNorm(Function):
 
     def backward(self, grad_output: NDArray) -> tuple[NDArray, NDArray, NDArray]:
         gamma, _ = self.saved_tensors
+        xp = get_array_module(grad_output)
 
         # sum over every axis except the last (normalized) one
         leading_axes = tuple(range(grad_output.ndim - 1))
-        grad_beta = np.sum(grad_output, axis=leading_axes)
-        grad_gamma = np.sum(grad_output * self.x_hat, axis=leading_axes)
+        grad_beta = xp.sum(grad_output, axis=leading_axes)
+        grad_gamma = xp.sum(grad_output * self.x_hat, axis=leading_axes)
 
         grad_x_hat = grad_output * gamma.data
 
         # same three-path chain rule as BatchNorm2D, over axis=-1 instead
         # of (0, 2, 3), with self.N = features instead of batch*H*W
-        grad_var = np.sum(
+        grad_var = xp.sum(
             grad_x_hat * self.x_centered * -0.5 * (self.var + self.eps) ** -1.5,
             axis=-1,
             keepdims=True,
         )
-        grad_mean = np.sum(
-            grad_x_hat * -1 / np.sqrt(self.var + self.eps),
+        grad_mean = xp.sum(
+            grad_x_hat * -1 / xp.sqrt(self.var + self.eps),
             axis=-1,
             keepdims=True
         )
-        grad_mean += grad_var * np.sum(-2 * self.x_centered, axis=-1, keepdims=True) / self.N
-        grad_x = grad_x_hat / np.sqrt(self.var + self.eps)
+        grad_mean += grad_var * xp.sum(-2 * self.x_centered, axis=-1, keepdims=True) / self.N
+        grad_x = grad_x_hat / xp.sqrt(self.var + self.eps)
         grad_x += grad_var * 2 * self.x_centered / self.N
         grad_x += grad_mean / self.N
 

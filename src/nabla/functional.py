@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from nabla.backend import get_array_module
 from nabla.ops.activation import ReLU, Sigmoid
 from nabla.ops.concat import Concat
 from nabla.ops.conv import Conv2D
@@ -132,11 +133,15 @@ def scaled_dot_product_attention(Q: Tensor, K: Tensor, V: Tensor, mask: np.ndarr
     backward pass automatically by walking the graph these calls build.
     """
     d_k = Q.data.shape[-1]
+    xp = get_array_module(Q.data)
 
     scores = matmul(Q, _swap_last_two_axes(K))
-    scores = scores * Tensor(np.array(1 / np.sqrt(d_k)))
+    scores = scores * Tensor(xp.array(1 / xp.sqrt(d_k)))
     if mask is not None:
-        scores = scores + Tensor(mask)
+        # mask is a plain array the caller built (e.g. with np.triu for a
+        # causal mask) - match it to Q's device rather than requiring
+        # every caller to build it on the right device themselves
+        scores = scores + Tensor(xp.asarray(mask))
 
     weights = softmax(scores, axis=-1)
     return matmul(weights, V)

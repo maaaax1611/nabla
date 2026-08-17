@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
 from numpy.typing import NDArray
 
+from nabla.backend import get_array_module
 from nabla.function import Function
 
 if TYPE_CHECKING:
@@ -31,7 +31,8 @@ class Dropout(Function):
     def forward(self, x: Tensor) -> NDArray:
         # survive with probability (1 - p), then scale survivors by
         # 1/(1-p) so E[out] == x regardless of p (inverted dropout)
-        keep = np.random.rand(*x.data.shape) < (1 - self.p)
+        xp = get_array_module(x.data)
+        keep = xp.random.rand(*x.data.shape) < (1 - self.p)
         self.mask = keep.astype(x.data.dtype) / (1 - self.p)
         return x.data * self.mask
 

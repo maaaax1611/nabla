@@ -60,6 +60,10 @@ last.
 18. [Example: MNIST with a Vision Transformer](18-vit-example.md) — training
     `VisionTransformer` end to end, and why it trails a CNN's accuracy
     at the same budget (a real, well-known ViT property, not a bug).
+19. [GPU Support via CuPy](19-gpu-support.md) — the `get_array_module`
+    dispatch trick that lets every op run on NumPy or CuPy unchanged,
+    `Tensor`/`Module.to(device)`, and four device-mismatch bugs that
+    only surfaced by actually running on a GPU.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

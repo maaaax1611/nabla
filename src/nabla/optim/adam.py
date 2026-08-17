@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import numpy as np
-
+from nabla.backend import get_array_module
 from nabla.optim.optimizer import Optimizer
 from nabla.regularizers import Regularizer
 from nabla.tensor import Tensor
@@ -29,8 +28,8 @@ class Adam(Optimizer):
         super().__init__(parameters, lr, regularizers)
         self.betas = betas
         self.eps = eps
-        self.m = [np.zeros_like(param.data) for param in parameters]
-        self.v = [np.zeros_like(param.data) for param in parameters]
+        self.m = [get_array_module(param.data).zeros_like(param.data) for param in parameters]
+        self.v = [get_array_module(param.data).zeros_like(param.data) for param in parameters]
         self.t = 0
 
     def step(self) -> None:
@@ -48,4 +47,5 @@ class Adam(Optimizer):
                 # Compute bias-corrected second raw moment estimate
                 v_hat = self.v[i] / (1 - self.betas[1] ** self.t)
                 # Update parameters
-                param.data -= self.lr * m_hat / (np.sqrt(v_hat) + self.eps)
+                xp = get_array_module(v_hat)
+                param.data -= self.lr * m_hat / (xp.sqrt(v_hat) + self.eps)

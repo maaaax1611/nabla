@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import numpy as np
 from numpy.typing import NDArray
 
+from nabla.backend import get_array_module
 from nabla.tensor import Tensor
 
 
@@ -26,7 +26,8 @@ class L1Regularizer(Regularizer):
         self.weight_decay = weight_decay
 
     def apply(self, param: Tensor) -> NDArray:
-        return self.weight_decay * np.sign(param.data)
+        xp = get_array_module(param.data)
+        return self.weight_decay * xp.sign(param.data)
 
 
 class L2Regularizer(Regularizer):

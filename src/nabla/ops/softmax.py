@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import numpy as np
 from numpy.typing import NDArray
 
+from nabla.backend import get_array_module
 from nabla.function import Function
 
 if TYPE_CHECKING:
@@ -32,8 +32,9 @@ class Softmax(Function):
     def forward(self, x: Tensor) -> NDArray:
         # log-sum-exp trick: subtract the max before exponentiating so
         # exp() never overflows, without changing the softmax result
+        xp = get_array_module(x.data)
         shifted = x.data - x.data.max(axis=self.axis, keepdims=True)
-        exp_shifted = np.exp(shifted)
+        exp_shifted = xp.exp(shifted)
         sum_exp = exp_shifted.sum(axis=self.axis, keepdims=True)
         self.probs = exp_shifted / sum_exp
         return self.probs
@@ -43,5 +44,6 @@ class Softmax(Function):
         # summing grad_output_j * dp_j/dx_k over j collapses to this
         # Jacobian-vector product (see the derivation in the docs):
         #   dL/dx_k = p_k * (dL/dout_k - sum_j dL/dout_j * p_j)
-        weighted_sum = np.sum(grad_output * self.probs, axis=self.axis, keepdims=True)
+        xp = get_array_module(grad_output)
+        weighted_sum = xp.sum(grad_output * self.probs, axis=self.axis, keepdims=True)
         return (self.probs * (grad_output - weighted_sum),)

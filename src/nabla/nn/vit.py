@@ -24,7 +24,7 @@ class VisionTransformer(Module):
     learnable positional embedding -> TransformerBlock stack (no mask - a
     full image needs no causal restriction, every patch may attend to
     every other patch) -> LayerNorm -> classification head applied to the
-    CLS token's final representation only.
+    CLS token's final representation only (picked out via `x[:, 0]`).
 
     Args:
         img_size: Height/width of the (square) input image.
@@ -63,14 +63,6 @@ class VisionTransformer(Module):
         self.norm_out = LayerNorm(embed_dim)
         self.head = Linear(embed_dim, num_classes)
 
-        # Fixed (non-learnable) one-hot row selecting sequence position 0 -
-        # picking out the CLS token via matmul instead of adding a new
-        # indexing/slicing op: selector @ x sums over the sequence axis,
-        # and a one-hot row makes that sum equal exactly x[:, 0, :].
-        selector = np.zeros((1, 1, num_patches + 1))
-        selector[0, 0, 0] = 1.0
-        self._cls_selector = Tensor(selector)
-
     def forward(self, images: Tensor) -> Tensor:
         """Args:
             images: (batch, in_channels, img_size, img_size)
@@ -90,5 +82,5 @@ class VisionTransformer(Module):
             x = block(x)  # no mask - every patch may attend to every other patch
         x = self.norm_out(x)
 
-        cls_out = F.matmul(self._cls_selector, x).reshape((batch, -1))
+        cls_out = x[:, 0]  # (batch, embed_dim) - the CLS token's final representation
         return self.head(cls_out)

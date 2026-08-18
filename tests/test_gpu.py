@@ -13,6 +13,7 @@ from nabla.nn.conv import Conv2D
 from nabla.nn.embedding import Embedding
 from nabla.nn.linear import Linear
 from nabla.nn.loss import CrossEntropyLoss
+from nabla.nn.module import Module
 from nabla.nn.positional_encoding import PositionalEncoding
 from nabla.nn.transformer import TransformerBlock
 from nabla.nn.vit import VisionTransformer
@@ -69,16 +70,18 @@ class TestModuleDeviceTransfer:
         assert isinstance(pe.table, cp.ndarray)
 
     def test_to_cuda_moves_fixed_non_grad_tensor_buffers(self):
-        # VisionTransformer._cls_selector is a Tensor but requires_grad=False -
-        # excluded from parameters(), but Module.to() must still move it
+        # a Tensor attribute with requires_grad=False is excluded from
+        # parameters(), but Module.to() must still move it
         import cupy as cp
 
-        model = VisionTransformer(
-            img_size=8, patch_size=4, in_channels=1, num_classes=5,
-            embed_dim=8, num_heads=2, hidden_dim=16, num_layers=1, dropout=0.0,
-        )
+        class WithFixedBuffer(Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.fixed = Tensor(np.ones((2, 2)))  # requires_grad=False
+
+        model = WithFixedBuffer()
         model.to("cuda")
-        assert isinstance(model._cls_selector.data, cp.ndarray)
+        assert isinstance(model.fixed.data, cp.ndarray)
 
 
 @requires_gpu

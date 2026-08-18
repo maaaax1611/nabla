@@ -79,27 +79,23 @@ unlike causal language modeling, an image classifier has no
 "future" to hide from a patch. Every patch (and the CLS token) may
 freely attend to every other patch.
 
-## Picking out the CLS token without a new indexing op
+## Picking out the CLS token
 
 After the Transformer stack and a final `LayerNorm`, only the CLS
-token's output (position 0) goes to the classification head — but
-nabla has no `Tensor.__getitem__`/slicing op yet. Rather than add one
-just for this, `VisionTransformer` reuses `MatMul`, which already has a
-backward: a fixed (non-learnable, `requires_grad=False`) one-hot row
-picks out position 0 by construction —
+token's output (position 0) goes to the classification head:
 
 ```python
-selector = np.zeros((1, 1, num_patches + 1))
-selector[0, 0, 0] = 1.0
-self._cls_selector = Tensor(selector)
-...
-cls_out = F.matmul(self._cls_selector, x).reshape((batch, -1))
+cls_out = x[:, 0]  # (batch, embed_dim)
 ```
 
-`selector @ x` sums over the sequence axis with weight 1 at position 0
-and 0 everywhere else, so the sum is exactly `x[:, 0, :]`. Same trick as
-everywhere else in this codebase: prefer composing an already-differentiable
-op over hand-deriving a new one when the composition is this direct.
+**Originally**, nabla had no `Tensor.__getitem__`/slicing op, so this used
+a fixed (non-learnable, `requires_grad=False`) one-hot row and `MatMul`
+instead — `selector @ x` sums over the sequence axis with weight 1 at
+position 0 and 0 everywhere else, which is exactly `x[:, 0, :]`. That
+workaround is gone now that [`Slice`](24-slicing.md) exists; see that doc
+for the backward-pass derivation (it's a plain scatter, not the
+scatter-*accumulate* `Embedding` needs, because basic indexing never reads
+the same source element twice).
 
 ## Testing
 
@@ -109,6 +105,5 @@ verifies patches are spatially independent (zeroing one patch's pixels
 must not change any other patch's embedding). [`tests/test_nn_vit.py`](../tests/test_nn_vit.py)
 checks end-to-end forward shape (including a multi-channel/RGB case),
 that gradients reach every parameter including `cls_token` and
-`pos_embedding`, that the fixed CLS selector is correctly excluded from
-`parameters()`, and that `train()`/`eval()` propagates down into the
+`pos_embedding`, and that `train()`/`eval()` propagates down into the
 block stack's dropout layers.

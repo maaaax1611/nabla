@@ -49,12 +49,6 @@ class TestVisionTransformer:
         assert any(p is model.cls_token for p in params)
         assert any(p is model.pos_embedding for p in params)
 
-    def test_cls_selector_not_in_parameters(self):
-        # the fixed one-hot selector used to pick out the CLS token must
-        # never be treated as a trainable parameter
-        model = make_vit()
-        assert model._cls_selector not in model.parameters()
-
     def test_different_images_produce_different_logits(self):
         model = make_vit()
         x1 = Tensor(np.random.randn(1, 1, 8, 8))

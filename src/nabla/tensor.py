@@ -12,6 +12,7 @@ from nabla.ops.dropout import Dropout
 from nabla.ops.layernorm import LayerNorm
 from nabla.ops.pooling import AvgPool2D, MaxPool2D
 from nabla.ops.reduce import Mean, Sum
+from nabla.ops.slice import Slice
 from nabla.ops.softmax import Softmax
 from nabla.ops.transform import MatMul, Reshape, Transpose
 
@@ -99,6 +100,12 @@ class Tensor:
 
     def __matmul__(self, other: Tensor) -> Tensor:
         return MatMul.apply(self, other)
+
+    def __getitem__(self, key) -> Tensor:
+        """Basic indexing (ints, slices, Ellipsis, None), like numpy - e.g.
+        `x[:, 0]`, `x[1:3]`, `x[..., :2]`. No boolean/fancy-array indices.
+        """
+        return Slice.apply(self, key=key)
 
     def sum(self) -> Tensor:
         """Reduce all elements to a scalar by summation."""

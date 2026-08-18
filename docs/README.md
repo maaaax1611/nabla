@@ -54,9 +54,10 @@ last.
     an off-by-one bug in its backward pass that numerical gradient
     checking caught immediately.
 17. [Vision Transformer (ViT)](17-vision-transformer.md) — turning images
-    into patch sequences via `Conv2D`, a CLS token via `Concat`, a
-    learned positional embedding, and picking a single sequence
-    position out via `MatMul` instead of adding a new indexing op.
+    into patch sequences via `Conv2D`, a CLS token via `Concat`, and a
+    learned positional embedding. (Originally picked the CLS token out
+    via a one-hot `MatMul` for lack of an indexing op — see
+    [doc 24](24-slicing.md) for how that got replaced.)
 18. [Example: MNIST with a Vision Transformer](18-vit-example.md) — training
     `VisionTransformer` end to end, and why it trails a CNN's accuracy
     at the same budget (a real, well-known ViT property, not a bug).
@@ -76,6 +77,10 @@ last.
 23. [Logging](23-logging.md) — tracking metrics logged at different
     step cadences (train loss every step, val loss every eval interval)
     without padding gaps, exported as tidy/long-format CSV.
+24. [Slicing](24-slicing.md) — basic indexing (`x[:, 0]`, `x[1:3]`), why its
+    backward pass is a plain scatter instead of `Embedding`-style
+    scatter-accumulate, and retiring the one-hot-matmul CLS-token hack
+    from the Vision Transformer now that real indexing exists.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

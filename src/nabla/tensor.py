@@ -62,18 +62,30 @@ class Tensor:
         else:
             self.grad = grad
 
-        # topological sort of the computation graph
+        # topological sort of the computation graph - iterative (explicit
+        # stack), not a recursive closure: a recursive nested function
+        # refers to itself through its own closure cell, which is a
+        # reference cycle in its own right. That cycle would keep the
+        # `backward()` call frame - and therefore the `topo` list holding
+        # every tensor in the graph - alive until Python's cyclic garbage
+        # collector happened to run, regardless of the _ctx/_prev
+        # clearing below. Each stack entry is (tensor, expanded) - the
+        # first time a tensor is popped it gets pushed back with
+        # expanded=True and its parents get pushed on top of it; the
+        # second time (now on top of all its parents), it's appended to
+        # topo - the same post-order the recursive version produced.
         topo: list[Tensor] = []
         visited: set[int] = set()
-
-        def topo_sort(tensor: Tensor) -> None:
-            if id(tensor) not in visited:
-                visited.add(id(tensor))
-                for parent in tensor._prev:
-                    topo_sort(parent)
+        stack: list[tuple[Tensor, bool]] = [(self, False)]
+        while stack:
+            tensor, expanded = stack.pop()
+            if expanded:
                 topo.append(tensor)
-
-        topo_sort(self)
+            elif id(tensor) not in visited:
+                visited.add(id(tensor))
+                stack.append((tensor, True))
+                for parent in tensor._prev:
+                    stack.append((parent, False))
 
         # propagate gradients backward through the sorted graph
         for tensor in reversed(topo):
@@ -85,6 +97,20 @@ class Tensor:
                             parent.grad = g
                         else:
                             parent.grad = parent.grad + g
+
+        # Every non-leaf tensor holds a Function (_ctx), and that Function
+        # holds tensors right back via saved_tensors/_prev - a reference
+        # cycle that plain refcounting can never collect on its own. Left
+        # in place, each step's graph (and all the GPU memory it holds)
+        # only gets freed whenever Python's cyclic GC happens to run,
+        # which is not every step - on GPU that shows up as the memory
+        # pool ballooning for a few steps, then a big stall while CuPy
+        # allocates fresh blocks, repeating every time the GC finally
+        # catches up. Breaking the cycle here (like PyTorch's default
+        # retain_graph=False) frees each step's graph immediately instead.
+        for tensor in topo:
+            tensor._ctx = None
+            tensor._prev = ()
 
     def __add__(self, other: Tensor) -> Tensor:
         return Add.apply(self, other)

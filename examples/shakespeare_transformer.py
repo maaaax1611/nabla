@@ -109,8 +109,8 @@ def generate(
     return tokenizer.decode(np.array(ids))
 
 
-CHECKPOINT_PATH = os.path.join(os.path.dirname(__file__), ".shakespeare_checkpoint.pkl")
-HISTORY_PATH = os.path.join(os.path.dirname(__file__), ".shakespeare_history.csv")
+CHECKPOINT_PATH = os.path.join(os.path.dirname(__file__), ".shakespeare_large_checkpoint.pkl")
+HISTORY_PATH = os.path.join(os.path.dirname(__file__), ".shakespeare_large_history.csv")
 
 
 def main() -> None:
@@ -118,10 +118,10 @@ def main() -> None:
     train_ids, val_ids, tokenizer = load_shakespeare()
     print(f"Vocab size: {tokenizer.vocab_size}, train chars: {len(train_ids)}, val chars: {len(val_ids)}")
 
-    block_size = 64
-    batch_size = 16
-    steps = 10000
-    eval_interval = 100
+    block_size = 128
+    batch_size = 32
+    steps = 15000
+    eval_interval = 200
     max_grad_norm = 1.0
 
     device = "cuda" if gpu_available() else "cpu"
@@ -129,17 +129,17 @@ def main() -> None:
 
     model = CharTransformerLM(
         vocab_size=tokenizer.vocab_size,
-        embed_dim=64,
-        num_heads=4,
-        hidden_dim=256,
-        num_layers=3,
+        embed_dim=256,
+        num_heads=8,
+        hidden_dim=1024,
+        num_layers=6,
         max_len=block_size,
         dropout=0.1,
     )
     model.to(device)  # before constructing the optimizer - see docs/19-gpu-support.md
     criterion = CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=3e-4)
-    scheduler = WarmupCosineLR(optimizer, warmup_steps=100, total_steps=steps, min_lr=3e-5)
+    scheduler = WarmupCosineLR(optimizer, warmup_steps=300, total_steps=steps, min_lr=3e-5)
     mask = causal_mask(block_size)
     rng = np.random.default_rng(0)
     history = History()

@@ -81,6 +81,11 @@ last.
     backward pass is a plain scatter instead of `Embedding`-style
     scatter-accumulate, and retiring the one-hot-matmul CLS-token hack
     from the Vision Transformer now that real indexing exists.
+25. [Graph Memory and GPU Stalls](25-graph-memory-and-gpu-stalls.md) — two
+    reference cycles (`Tensor`/`Function`, and a recursive closure inside
+    `backward()` itself) that left every step's graph alive until
+    Python's cyclic GC happened to run, and why that turned into
+    multi-second GPU stalls only once the model got big enough to matter.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

@@ -226,3 +226,5 @@ examples/.shakespeare_cache/
 # Training run artifacts (checkpoints, logged metrics)
 examples/.shakespeare_checkpoint.pkl
 examples/.shakespeare_history.csv
+examples/.shakespeare_large_checkpoint.pkl
+examples/.shakespeare_large_history.csv

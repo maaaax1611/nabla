@@ -27,9 +27,8 @@ Adding a constant only shifts the input; $\partial(x+c)/\partial x = 1$
 either way, so the existing `Add` `Function` (see
 [Autodiff basics](01-autodiff.md)) already produces the correct gradient
 with no new backward derivation needed — the constant Tensor just never
-has `requires_grad=True`, so its own (correctly computed, but irrelevant)
-gradient gets discarded the same way `targets`/`indices` are elsewhere in
-the library.
+has `requires_grad=True`, so its own gradient gets discarded the same 
+way `targets`/`indices` are elsewhere in the library.
 
 ## The formula
 

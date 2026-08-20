@@ -10,7 +10,7 @@ front:
   is what "embedding" usually means in a foundation-model context, and
   it's the *result* of running a model, not a layer in one.
 - **`nn.Embedding`** (this doc) — the very first layer of a language model,
-  turning a discrete token ID into the dense vector that then *feeds into*
+  turning a discrete token ID (that was created by a tokenizer) into the dense vector that then *feeds into*
   the encoder. It's a learnable lookup table, nothing more: shape
   `(vocab_size, embed_dim)`, one trainable row per vocabulary entry.
 

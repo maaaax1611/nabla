@@ -15,6 +15,7 @@ from nabla.ops.reduce import Mean, Sum
 from nabla.ops.slice import Slice
 from nabla.ops.softmax import Softmax
 from nabla.ops.transform import MatMul, Reshape, Transpose
+from nabla.ops.upsample import Upsample
 
 
 class Tensor:
@@ -171,6 +172,10 @@ class Tensor:
     def avg_pool2d(self, kernel_size: int, stride: int | None = None) -> Tensor:
         """2D average pooling. stride defaults to kernel_size (non-overlapping windows)."""
         return AvgPool2D.apply(self, kernel_size=kernel_size, stride=stride)
+
+    def upsample(self, scale: int) -> Tensor:
+        """Nearest-neighbor upsampling by an integer scale factor."""
+        return Upsample.apply(self, scale=scale)
 
     @property
     def T(self) -> Tensor:

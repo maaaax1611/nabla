@@ -86,6 +86,9 @@ last.
     `backward()` itself) that left every step's graph alive until
     Python's cyclic GC happened to run, and why that turned into
     multi-second GPU stalls only once the model got big enough to matter.
+26. [Upsample](26-upsample.md) — nearest-neighbor upsampling for a U-Net
+    decoder, why its backward is a reshape-and-sum that mirrors forward's
+    `repeat`, and a first (wrong) `roll`-based attempt that shows why.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

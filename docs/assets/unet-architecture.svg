@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 660" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333333"/>
+    </marker>
+    <marker id="arrow-skip" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#8a7000"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="920" height="660" fill="#ffffff"/>
+
+  <!-- ============ vertical main-path arrows ============ -->
+  <!-- encoder side -->
+  <line x1="220" y1="122" x2="220" y2="158" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="220" y1="232" x2="220" y2="268" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="220" y1="342" x2="220" y2="378" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="230" y1="452" x2="420" y2="512" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+  <!-- decoder side -->
+  <line x1="500" y1="512" x2="690" y2="452" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="700" y1="378" x2="700" y2="342" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="700" y1="268" x2="700" y2="232" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="700" y1="158" x2="700" y2="122" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- input / output -->
+  <line x1="220" y1="30" x2="220" y2="66" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="220" y="22" text-anchor="middle" font-size="13" fill="#111111">Input (B, Cin, H, W)</text>
+
+  <line x1="700" y1="66" x2="700" y2="30" stroke="#333333" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="700" y="22" text-anchor="middle" font-size="13" fill="#111111">Output (B, Cout, H, W)</text>
+
+  <!-- ============ skip connections (dashed) ============ -->
+  <line x1="271" y1="92"  x2="609" y2="92"  stroke="#8a7000" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arrow-skip)"/>
+  <line x1="256" y1="202" x2="624" y2="202" stroke="#8a7000" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arrow-skip)"/>
+  <line x1="241" y1="312" x2="639" y2="312" stroke="#8a7000" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arrow-skip)"/>
+  <line x1="226" y1="422" x2="654" y2="422" stroke="#8a7000" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arrow-skip)"/>
+  <text x="460" y="86" text-anchor="middle" font-size="12" fill="#8a7000">skip connections (concat)</text>
+
+  <!-- ============ encoder boxes (blue, darkening with depth) ============ -->
+  <rect x="135" y="67"  width="170" height="55" rx="6" fill="#dbe8f7" stroke="#2f6fb3" stroke-width="1.6"/>
+  <text x="220" y="90"  text-anchor="middle" font-size="13" fill="#12385e">DoubleConv</text>
+  <text x="220" y="107" text-anchor="middle" font-size="12" fill="#12385e">Cin → f₀</text>
+
+  <rect x="150" y="177" width="140" height="55" rx="6" fill="#b9d3ee" stroke="#2f6fb3" stroke-width="1.6"/>
+  <text x="220" y="200" text-anchor="middle" font-size="13" fill="#12385e">DoubleConv</text>
+  <text x="220" y="217" text-anchor="middle" font-size="12" fill="#12385e">f₀ → f₁</text>
+
+  <rect x="165" y="287" width="110" height="55" rx="6" fill="#8fb9e3" stroke="#2f6fb3" stroke-width="1.6"/>
+  <text x="220" y="310" text-anchor="middle" font-size="13" fill="#0d2e4d">DoubleConv</text>
+  <text x="220" y="327" text-anchor="middle" font-size="12" fill="#0d2e4d">f₁ → f₂</text>
+
+  <rect x="177" y="397" width="85" height="55" rx="6" fill="#6198cf" stroke="#2f6fb3" stroke-width="1.6"/>
+  <text x="220" y="420" text-anchor="middle" font-size="12.5" fill="#ffffff">DoubleConv</text>
+  <text x="220" y="437" text-anchor="middle" font-size="11.5" fill="#ffffff">f₂ → f₃</text>
+
+  <!-- ============ bottleneck ============ -->
+  <rect x="405" y="507" width="110" height="60" rx="6" fill="#5a3f8f" stroke="#3d2a63" stroke-width="1.6"/>
+  <text x="460" y="532" text-anchor="middle" font-size="13" fill="#ffffff">Bottleneck</text>
+  <text x="460" y="550" text-anchor="middle" font-size="12" fill="#ffffff">f₃ → 2·f₃</text>
+
+  <!-- ============ decoder boxes (teal, lightening toward output) ============ -->
+  <rect x="658" y="397" width="85" height="55" rx="6" fill="#4a9c85" stroke="#2f7d68" stroke-width="1.6"/>
+  <text x="700" y="420" text-anchor="middle" font-size="12.5" fill="#ffffff">DoubleConv</text>
+  <text x="700" y="437" text-anchor="middle" font-size="11.5" fill="#ffffff">2·f₃ → f₂</text>
+
+  <rect x="645" y="287" width="110" height="55" rx="6" fill="#8ecab8" stroke="#2f7d68" stroke-width="1.6"/>
+  <text x="700" y="310" text-anchor="middle" font-size="13" fill="#0d3d32">DoubleConv</text>
+  <text x="700" y="327" text-anchor="middle" font-size="12" fill="#0d3d32">2·f₂ → f₁</text>
+
+  <rect x="630" y="177" width="140" height="55" rx="6" fill="#bfe2d7" stroke="#2f7d68" stroke-width="1.6"/>
+  <text x="700" y="200" text-anchor="middle" font-size="13" fill="#0d3d32">DoubleConv</text>
+  <text x="700" y="217" text-anchor="middle" font-size="12" fill="#0d3d32">2·f₁ → f₀</text>
+
+  <rect x="615" y="67"  width="170" height="55" rx="6" fill="#e2f1ec" stroke="#2f7d68" stroke-width="1.6"/>
+  <text x="700" y="90"  text-anchor="middle" font-size="13" fill="#0d3d32">DoubleConv</text>
+  <text x="700" y="107" text-anchor="middle" font-size="12" fill="#0d3d32">2·f₀ → Cout</text>
+
+  <!-- ============ arrow-step labels ============ -->
+  <text x="234" y="145" font-size="11" fill="#555555">MaxPool2D /2</text>
+  <text x="234" y="255" font-size="11" fill="#555555">MaxPool2D /2</text>
+  <text x="234" y="365" font-size="11" fill="#555555">MaxPool2D /2</text>
+
+  <text x="706" y="145" font-size="11" fill="#555555">Upsample x2 + Conv2D</text>
+  <text x="706" y="255" font-size="11" fill="#555555">Upsample x2 + Conv2D</text>
+  <text x="706" y="365" font-size="11" fill="#555555">Upsample x2 + Conv2D</text>
+
+  <!-- ============ legend ============ -->
+  <g transform="translate(300, 600)">
+    <rect x="0" y="0" width="16" height="16" rx="3" fill="#8fb9e3" stroke="#2f6fb3" stroke-width="1.2"/>
+    <text x="22" y="12" font-size="12" fill="#333333">Encoder (resolution ↓, channels ↑)</text>
+
+    <rect x="230" y="0" width="16" height="16" rx="3" fill="#5a3f8f" stroke="#3d2a63" stroke-width="1.2"/>
+    <text x="252" y="12" font-size="12" fill="#333333">Bottleneck</text>
+
+    <rect x="340" y="0" width="16" height="16" rx="3" fill="#8ecab8" stroke="#2f7d68" stroke-width="1.2"/>
+    <text x="362" y="12" font-size="12" fill="#333333">Decoder (resolution ↑, channels ↓)</text>
+  </g>
+</svg>

@@ -218,13 +218,18 @@ __marimo__/
 .streamlit/secrets.toml
 
 # MNIST cache (downloaded dataset files)
-examples/.mnist_cache/
+examples/mnist/.mnist_cache/
 
 # Tiny Shakespeare cache (downloaded dataset file)
-examples/.shakespeare_cache/
+examples/shakespeare/.shakespeare_cache/
 
 # Training run artifacts (checkpoints, logged metrics)
-examples/.shakespeare_checkpoint.pkl
-examples/.shakespeare_history.csv
-examples/.shakespeare_large_checkpoint.pkl
-examples/.shakespeare_large_history.csv
+examples/shakespeare/.shakespeare_checkpoint.pkl
+examples/shakespeare/.shakespeare_history.csv
+examples/shakespeare/.shakespeare_large_checkpoint.pkl
+examples/shakespeare/.shakespeare_large_history.csv
+
+# BraTS segmentation: raw/processed data and training artifacts (large, not committed)
+examples/segmentation/.brats_cache/
+examples/segmentation/.unet_checkpoint.pkl
+examples/segmentation/.unet_history.csv

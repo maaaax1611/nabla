@@ -4,6 +4,7 @@ import numpy as np
 
 from nabla.backend import is_gpu_array
 from nabla.nn.module import Module
+from nabla.ops.loss import DiceLoss as DiceLossFunction
 from nabla.ops.loss import SoftmaxCrossEntropy
 from nabla.tensor import Tensor
 
@@ -73,3 +74,34 @@ class CrossEntropyLoss(Module):
                 f"Expected targets of shape ({logits.data.shape[0]},), got {targets.data.shape}."
             )
         return SoftmaxCrossEntropy.apply(logits, targets)
+
+
+class DiceLoss(Module):
+    """Soft Dice loss for binary segmentation: 1 - Dice coefficient.
+
+    Expects `predictions` to already be probabilities in [0, 1] (e.g. after
+    a sigmoid) - this Function does not apply an activation itself.
+    """
+
+    def __init__(self, eps: float = 1e-6) -> None:
+        super().__init__()
+        self.eps = eps
+
+    def forward(self, predictions: Tensor, targets: Tensor) -> Tensor:
+        """Compute the Dice loss between predicted and target masks.
+
+        Args:
+            predictions: Predicted probabilities, shape (batch, ...).
+            targets: Ground-truth binary mask, same shape as predictions.
+
+        Returns:
+            Scalar tensor containing the mean Dice loss over the batch.
+        """
+        if not isinstance(predictions, Tensor) or not isinstance(targets, Tensor):
+            raise TypeError("Both predictions and targets must be instances of Tensor.")
+        if predictions.data.shape != targets.data.shape:
+            raise ValueError(
+                f"Predictions and targets must have the same shape. "
+                f"Got {predictions.data.shape} and {targets.data.shape}."
+            )
+        return DiceLossFunction.apply(predictions, targets, eps=self.eps)

@@ -41,9 +41,14 @@ def main() -> None:
     # hyperparams
     epochs = 8000
     # we need to use a low bs here bc my rtx 2070 super cant handle that much
-    # original pytorch works with bs=16 
+    # original pytorch works with bs=16
     batch_size = 8
     eval_interval = 25
+    # 240 is only evenly divisible by 16 (2**4, from the U-Net's 4 pooling
+    # stages) at a downsample factor of 1 or 3 - 3 cuts H*W (and so Conv2D's
+    # cost, which scales with it) by 9x, which is what makes training this
+    # at all tractable on an 8GB GPU (see docs/28-unet.md / docs/29-no-grad.md)
+    downsample = 3
 
     # model setup
     device = "cuda" if gpu_available() else "cpu"
@@ -69,7 +74,7 @@ def main() -> None:
     model.train()
     min_val_loss = float("inf")
     for epoch in range(epochs):
-        X_train, y_train = get_batch(train, batch_size, rng)
+        X_train, y_train = get_batch(train, batch_size, rng, downsample=downsample)
         
         train_loss = compute_loss(model, X_train, y_train, criterion, device)
         
@@ -80,7 +85,7 @@ def main() -> None:
         if epoch % eval_interval == 0 or epoch == epochs - 1:
             model.eval()
             with no_grad():
-                X_val, y_val = get_batch(val, batch_size, rng)
+                X_val, y_val = get_batch(val, batch_size, rng, downsample=downsample)
                 val_loss = compute_loss(model, X_val, y_val, criterion, device)
             model.train()
 

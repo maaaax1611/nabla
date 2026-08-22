@@ -41,7 +41,7 @@ class Conv2D(Module):
 
         weight_shape = (out_channels, in_channels, kernel_size, kernel_size)
         self.weight = Tensor(weight_init(weight_shape), requires_grad=True)
-        self.bias = Tensor(np.zeros(out_channels), requires_grad=True)
+        self.bias = Tensor(np.zeros(out_channels, dtype=np.float32), requires_grad=True)
 
     def forward(self, x: Tensor) -> Tensor:
         """Apply the convolution to input.

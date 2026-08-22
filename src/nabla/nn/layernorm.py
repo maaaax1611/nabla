@@ -25,8 +25,8 @@ class LayerNorm(Module):
         self.num_features = num_features
         self.eps = eps
 
-        self.gamma = Tensor(np.ones(num_features), requires_grad=True)
-        self.beta = Tensor(np.zeros(num_features), requires_grad=True)
+        self.gamma = Tensor(np.ones(num_features, dtype=np.float32), requires_grad=True)
+        self.beta = Tensor(np.zeros(num_features, dtype=np.float32), requires_grad=True)
 
     def forward(self, x: Tensor) -> Tensor:
         if not isinstance(x, Tensor):

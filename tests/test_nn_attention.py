@@ -5,7 +5,19 @@ from nabla.tensor import Tensor
 
 
 def numerical_gradient(f, t, grad_output, eps=1e-5):
-    """Central-difference gradient of sum(f() * grad_output) w.r.t. t.data."""
+    """Central-difference gradient of sum(f() * grad_output) w.r.t. t.data.
+
+    Perturbs (and evaluates) in float64 regardless of t.data's own dtype:
+    module parameters default to float32 (see src/nabla/init.py), and a
+    1e-5 perturbation written into a float32 array loses enough precision
+    on the round-trip that the resulting finite-difference estimate picks
+    up a ~0.1% relative error - comfortably outside this test's atol. The
+    production forward/backward pass still runs at whatever dtype the
+    model actually uses; only this reference check needs the extra
+    precision.
+    """
+    original_dtype = t.data.dtype
+    t.data = t.data.astype(np.float64)
     grad = np.zeros_like(t.data)
     it = np.nditer(t.data, flags=["multi_index"])
     for _ in it:
@@ -20,6 +32,7 @@ def numerical_gradient(f, t, grad_output, eps=1e-5):
 
         t.data[idx] = original
         grad[idx] = np.sum((out_plus - out_minus) / (2 * eps) * grad_output)
+    t.data = t.data.astype(original_dtype)
     return grad
 
 

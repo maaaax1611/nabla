@@ -30,7 +30,7 @@ class Linear(Module):
         self.in_features = in_features
         self.out_features = out_features
         self.weight = Tensor(weight_init((in_features, out_features)), requires_grad=True)
-        self.bias = Tensor(np.zeros(out_features), requires_grad=True)
+        self.bias = Tensor(np.zeros(out_features, dtype=np.float32), requires_grad=True)
 
     def forward(self, x: Tensor) -> Tensor:
         """Apply linear transformation to input.

@@ -54,8 +54,10 @@ class VisionTransformer(Module):
         self.patch_embed = PatchEmbedding(img_size, patch_size, in_channels, embed_dim)
         num_patches = self.patch_embed.num_patches
 
-        self.cls_token = Tensor(np.random.randn(1, 1, embed_dim) * 0.02, requires_grad=True)
-        self.pos_embedding = Tensor(np.random.randn(1, num_patches + 1, embed_dim) * 0.02, requires_grad=True)
+        self.cls_token = Tensor((np.random.randn(1, 1, embed_dim) * 0.02).astype(np.float32), requires_grad=True)
+        self.pos_embedding = Tensor(
+            (np.random.randn(1, num_patches + 1, embed_dim) * 0.02).astype(np.float32), requires_grad=True
+        )
 
         self.blocks = ModuleList(
             [TransformerBlock(embed_dim, num_heads, hidden_dim, dropout) for _ in range(num_layers)]

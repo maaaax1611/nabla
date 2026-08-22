@@ -17,7 +17,7 @@ def _small_normal(shape: tuple[int, ...]) -> NDArray:
     inputs - each output row depends on exactly one input row, so the
     fan_in/fan_out reasoning behind He/Xavier doesn't apply here.
     """
-    return np.random.randn(*shape) * 0.01
+    return (np.random.randn(*shape) * 0.01).astype(np.float32)
 
 
 class Embedding(Module):

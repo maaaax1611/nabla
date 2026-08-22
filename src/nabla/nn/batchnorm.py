@@ -29,12 +29,12 @@ class BatchNorm2D(Module):
         self.eps = eps
         self.momentum = momentum
 
-        self.gamma = Tensor(np.ones(num_features), requires_grad=True)
-        self.beta = Tensor(np.zeros(num_features), requires_grad=True)
+        self.gamma = Tensor(np.ones(num_features, dtype=np.float32), requires_grad=True)
+        self.beta = Tensor(np.zeros(num_features, dtype=np.float32), requires_grad=True)
 
         # running statistics: plain arrays, not learnable parameters
-        self.running_mean = np.zeros(num_features)
-        self.running_var = np.ones(num_features)
+        self.running_mean = np.zeros(num_features, dtype=np.float32)
+        self.running_var = np.ones(num_features, dtype=np.float32)
 
     def forward(self, x: Tensor) -> Tensor:
         if not isinstance(x, Tensor):

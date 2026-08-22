@@ -84,15 +84,26 @@ class Conv2D(Function):
         grad_cols = weight_flat.T @ grad_output_flat  # (in_channels*kh*kw, batch*out_h*out_w)
 
         # scatter each patch gradient back into its receptive field, accumulating
-        # where windows overlap (stride < kernel size)
+        # where windows overlap (stride < kernel size).
+        #
+        # Looping over every output position (out_h * out_w iterations) is what
+        # this used to do - fine at MNIST's 28x28, but 57,600 iterations (each
+        # its own tiny GPU kernel launch) at BraTS's 240x240 turned a single
+        # conv layer's backward into tens of seconds. Looping over kernel
+        # offsets instead (kh * kw iterations - 9 for a 3x3 kernel) does the
+        # same accumulation with a strided-slice add that covers every output
+        # position for that offset in one vectorized op.
         grad_x_padded = xp.zeros_like(self.x_padded)
         grad_cols = grad_cols.reshape(in_channels, kh, kw, self.batch_size, self.out_h, self.out_w)
 
-        for i in range(self.out_h):
-            for j in range(self.out_w):
-                patch_grad = grad_cols[:, :, :, :, i, j].transpose(3, 0, 1, 2)  # (batch, in_channels, kh, kw)
-                h0, w0 = i * self.stride, j * self.stride
-                grad_x_padded[:, :, h0 : h0 + kh, w0 : w0 + kw] += patch_grad
+        for di in range(kh):
+            for dj in range(kw):
+                # every output position's contribution at kernel offset (di, dj),
+                # landing on a regularly-strided grid of input positions
+                patch_grad = grad_cols[:, di, dj, :, :, :].transpose(1, 0, 2, 3)  # (batch, in_channels, out_h, out_w)
+                h_end = di + self.stride * (self.out_h - 1) + 1
+                w_end = dj + self.stride * (self.out_w - 1) + 1
+                grad_x_padded[:, :, di:h_end:self.stride, dj:w_end:self.stride] += patch_grad
 
         if self.padding > 0:
             p = self.padding

@@ -50,20 +50,31 @@ class MaxPool2D(Function):
 
     def backward(self, grad_output: NDArray) -> tuple[NDArray]:
         # grad_output: (batch, channels, out_h, out_w)
+        #
+        # Looping over every output position (out_h * out_w iterations, each
+        # its own xp.add.at call) doesn't scale to BraTS-sized inputs - see
+        # the same fix in Conv2D.backward. Every output position's target
+        # input index can be computed for the whole (batch, channels, out_h,
+        # out_w) grid in one shot instead, so a single xp.add.at call handles
+        # the entire scatter (still accumulating correctly if windows overlap).
         xp = get_array_module(grad_output)
+        batch, channels, out_h, out_w = grad_output.shape
         grad_x = xp.zeros(self.input_shape, dtype=grad_output.dtype)
 
-        batch_idx = xp.arange(self.input_shape[0])[:, None]  # (batch, 1)
-        channel_idx = xp.arange(self.input_shape[1])[None, :]  # (1, channels)
+        # di, dj = divmod(argmax, kernel_size): unravel_index's generic
+        # N-dimensional-shape handling is serious overhead for what is,
+        # for a fixed 2D kernel_size, just integer division and remainder
+        di, dj = xp.divmod(self.argmax, self.kernel_size)  # each (batch, channels, out_h, out_w)
 
-        # scatter each output position's gradient back to the input position
-        # that produced the max, accumulating where windows overlap
-        for i in range(self.out_h):
-            for j in range(self.out_w):
-                di, dj = xp.unravel_index(self.argmax[:, :, i, j], (self.kernel_size, self.kernel_size))
-                h_idx = i * self.stride + di
-                w_idx = j * self.stride + dj
-                xp.add.at(grad_x, (batch_idx, channel_idx, h_idx, w_idx), grad_output[:, :, i, j])
+        batch_idx = xp.arange(batch).reshape(batch, 1, 1, 1)
+        channel_idx = xp.arange(channels).reshape(1, channels, 1, 1)
+        i_idx = xp.arange(out_h).reshape(1, 1, out_h, 1)
+        j_idx = xp.arange(out_w).reshape(1, 1, 1, out_w)
+
+        h_idx = i_idx * self.stride + di
+        w_idx = j_idx * self.stride + dj
+
+        xp.add.at(grad_x, (batch_idx, channel_idx, h_idx, w_idx), grad_output)
 
         return (grad_x,)
 

@@ -89,6 +89,18 @@ last.
 26. [Upsample](26-upsample.md) — nearest-neighbor upsampling for a U-Net
     decoder, why its backward is a reshape-and-sum that mirrors forward's
     `repeat`, and a first (wrong) `roll`-based attempt that shows why.
+27. [Dice Loss](27-dice-loss.md) — overlap-based segmentation loss instead
+    of per-pixel cross-entropy, why `eps` placement matters for the
+    empty-mask edge case, and the quotient-rule backward that needs a
+    reshape to broadcast correctly against pixel-shaped gradients.
+28. [U-Net](28-unet.md) — encoder-decoder segmentation architecture with
+    skip connections, composing existing ops with no new backward math.
+    First doc written in the newer, more structured
+    Overview/Math/Implementation/Testing format.
+29. [no_grad](29-no-grad.md) — a context manager to skip graph
+    construction entirely for forward passes that never call
+    `.backward()` (validation/inference), avoiding gigabytes of retained
+    im2col buffers that a real training loop uncovered on an 8GB GPU.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

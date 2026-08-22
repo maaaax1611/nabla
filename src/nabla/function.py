@@ -46,16 +46,18 @@ class Function:
         Returns:
             A new Tensor containing the result with graph connections set up.
         """
+        from nabla.grad_mode import is_grad_enabled
         from nabla.tensor import Tensor
 
         ctx = cls(**kwargs)
         result = ctx.forward(*inputs)
         out = Tensor(result)
 
-        out._ctx = ctx
-        out._prev = inputs
+        if is_grad_enabled():
+            out._ctx = ctx
+            out._prev = inputs
 
-        if any(t.requires_grad for t in inputs):
-            out.requires_grad = True
+            if any(t.requires_grad for t in inputs):
+                out.requires_grad = True
 
         return out

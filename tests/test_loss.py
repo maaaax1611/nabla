@@ -1,4 +1,4 @@
-from nabla.nn.loss import CrossEntropyLoss, DiceLoss, MSELoss
+from nabla.nn.loss import BCEWithLogitsLoss, CrossEntropyLoss, DiceLoss, MSELoss
 from nabla.tensor import Tensor
 import numpy as np
 
@@ -203,6 +203,96 @@ class TestDiceLoss:
         targets = Tensor(np.random.rand(2, 3))
         try:
             DiceLoss()(predictions, targets)
+            assert False, "expected ValueError"
+        except ValueError:
+            pass
+
+
+class TestBCEWithLogitsLoss:
+    def naive_bce_with_logits(self, logits, targets):
+        # unstable reference (sigmoid then log) - fine for well-behaved
+        # test values, exactly the numerical trap the real op avoids
+        probs = 1 / (1 + np.exp(-logits))
+        return -np.mean(targets * np.log(probs) + (1 - targets) * np.log(1 - probs))
+
+    def test_forward_matches_naive_reference(self):
+        np.random.seed(0)
+        logits = Tensor(np.random.randn(4, 3) * 2)
+        targets = Tensor((np.random.rand(4, 3) > 0.5).astype(float))
+
+        loss = BCEWithLogitsLoss()(logits, targets)
+        expected = self.naive_bce_with_logits(logits.data, targets.data)
+        assert np.isclose(loss.data, expected, atol=1e-6)
+
+    def test_forward_is_low_for_confident_correct_predictions(self):
+        logits = Tensor(np.array([[20.0, -20.0]]))
+        targets = Tensor(np.array([[1.0, 0.0]]))
+        loss = BCEWithLogitsLoss()(logits, targets)
+        assert loss.data < 1e-6
+
+    def test_forward_is_high_for_confident_wrong_predictions(self):
+        logits = Tensor(np.array([[20.0, -20.0]]))
+        targets = Tensor(np.array([[0.0, 1.0]]))
+        loss = BCEWithLogitsLoss()(logits, targets)
+        assert loss.data > 15.0
+
+    def test_forward_stays_finite_for_extreme_logits(self):
+        # a naive sigmoid-then-log implementation would hit log(0) = -inf
+        # here; the fused formulation must not
+        logits = Tensor(np.array([[100.0, -100.0]]))
+        targets = Tensor(np.array([[0.0, 1.0]]))
+        loss = BCEWithLogitsLoss()(logits, targets)
+        assert np.isfinite(loss.data)
+
+    def test_backward_matches_numerical_gradient(self):
+        np.random.seed(1)
+        logits = Tensor(np.random.randn(3, 4), requires_grad=True)
+        targets = Tensor((np.random.rand(3, 4) > 0.5).astype(float))
+
+        def forward():
+            return BCEWithLogitsLoss()(logits, targets).data
+
+        loss = BCEWithLogitsLoss()(logits, targets)
+        loss.backward()
+
+        eps = 1e-5
+        num_grad = np.zeros_like(logits.data)
+        it = np.nditer(logits.data, flags=["multi_index"])
+        for _ in it:
+            idx = it.multi_index
+            original = logits.data[idx]
+            logits.data[idx] = original + eps
+            loss_plus = forward()
+            logits.data[idx] = original - eps
+            loss_minus = forward()
+            logits.data[idx] = original
+            num_grad[idx] = (loss_plus - loss_minus) / (2 * eps)
+
+        assert np.allclose(logits.grad, num_grad, atol=1e-6)
+
+    def test_backward_gradient_is_sigmoid_minus_targets_over_n(self):
+        logits = Tensor(np.random.randn(2, 3), requires_grad=True)
+        targets = Tensor((np.random.rand(2, 3) > 0.5).astype(float))
+
+        loss = BCEWithLogitsLoss()(logits, targets)
+        loss.backward()
+
+        sigmoid = 1 / (1 + np.exp(-logits.data))
+        expected = (sigmoid - targets.data) / logits.data.size
+        assert np.allclose(logits.grad, expected, atol=1e-6)
+
+    def test_backward_target_gradient_is_zero(self):
+        logits = Tensor(np.random.randn(2, 3), requires_grad=True)
+        targets = Tensor(np.random.rand(2, 3) > 0.5, requires_grad=True)
+        loss = BCEWithLogitsLoss()(logits, targets)
+        loss.backward()
+        assert np.array_equal(targets.grad, np.zeros_like(targets.data, dtype=float))
+
+    def test_forward_rejects_mismatched_shapes(self):
+        logits = Tensor(np.random.randn(2, 4))
+        targets = Tensor(np.random.randn(2, 3))
+        try:
+            BCEWithLogitsLoss()(logits, targets)
             assert False, "expected ValueError"
         except ValueError:
             pass

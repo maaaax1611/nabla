@@ -4,10 +4,13 @@
 
 `UNet` (`nn/unet.py`) is a 2D convolutional encoder-decoder for
 per-pixel binary segmentation (Ronneberger et al., 2015). It takes an
-image and returns a same-resolution probability map: one value in
-`[0, 1]` per pixel, the predicted probability that pixel belongs to the
-target class (e.g. tumor). Used with [`DiceLoss`](27-dice-loss.md) for
-training.
+image and returns a same-resolution map of raw logits: one unbounded
+score per pixel, not yet a probability. Callers apply `.sigmoid()`
+themselves wherever a probability is actually needed - before
+[`DiceLoss`](27-dice-loss.md), or at inference time - rather than having
+`UNet` apply it internally, so the loss can instead combine with
+[`BCEWithLogitsLoss`](30-bce-with-logits.md), which needs raw logits to
+stay numerically stable.
 
 ![U-Net architecture: encoder stages halving resolution while doubling channels, a bottleneck, and decoder stages mirroring the encoder with skip connections](assets/unet-architecture.svg)
 
@@ -18,8 +21,8 @@ stage (`features = (64, 128, 256, 512)` by default). A bottleneck
 The decoder mirrors the encoder in reverse: each stage upsamples `x2`,
 projects channels back down with a `Conv2D`, concatenates the matching
 encoder stage's pre-pooling output (the **skip connection**), and runs
-another `DoubleConv`. A final `1x1` `Conv2D` + sigmoid produces the
-output mask.
+another `DoubleConv`. A final `1x1` `Conv2D` produces the output
+logits.
 
 Spatial resolution `H, W` halves at every encoder pooling step and
 doubles back at every decoder upsampling step, so with `n` encoder
@@ -89,7 +92,7 @@ class UNet(Module):
     Shape:
         - Input: (batch, in_channels, H, W), H and W divisible by
           2 ** len(features).
-        - Output: (batch, out_channels, H, W), values in [0, 1].
+        - Output: (batch, out_channels, H, W), raw logits (unbounded).
     """
 ```
 
@@ -117,7 +120,7 @@ for upsample, up_conv, decoder_stage, skip in zip(
     x = F.concat([skip, x], axis=1)
     x = decoder_stage(x)
 
-return self.final_conv(x).sigmoid()
+return self.final_conv(x)  # raw logits - no sigmoid here, see Overview
 ```
 
 `up_conv`'s in/out channel counts are derived once in `__init__` from
@@ -132,6 +135,7 @@ up_conv_in_channels = [features[-1] * 2] + reversed_features[:-1]
 
 [`tests/test_nn_unet.py`](../tests/test_nn_unet.py): `DoubleConv` shape
 and non-negativity (post-ReLU); `UNet` forward shape at multiple depths
-and channel configs, output boundedness in `[0, 1]`, full-graph gradient
-flow (encoder, decoder, bottleneck, input), skip-connection dependency,
-train/eval toggling `BatchNorm2D`, and input-type validation.
+and channel configs, that output logits are unbounded (not squashed into
+`[0, 1]`), full-graph gradient flow (encoder, decoder, bottleneck,
+input), skip-connection dependency, train/eval toggling `BatchNorm2D`,
+and input-type validation.

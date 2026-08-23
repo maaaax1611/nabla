@@ -33,13 +33,14 @@ class TestUNet:
         out = model(x)
         assert out.data.shape == (2, 1, 32, 32)
 
-    def test_forward_output_is_a_valid_probability_map(self):
-        # final activation is sigmoid, so every pixel must be in [0, 1] -
-        # ready to feed directly into DiceLoss
+    def test_forward_output_is_unbounded_logits(self):
+        # no final activation - callers apply .sigmoid() themselves where
+        # a probability is actually needed (see docs/28-unet.md)
         model = make_unet()
-        x = Tensor(np.random.randn(2, 2, 32, 32))
+        x = Tensor(np.random.randn(2, 2, 32, 32) * 10)
         out = model(x)
-        assert (out.data >= 0).all() and (out.data <= 1).all()
+        assert np.isfinite(out.data).all()
+        assert (out.data < 0).any() or (out.data > 1).any()
 
     def test_forward_rejects_non_tensor_input(self):
         model = make_unet()

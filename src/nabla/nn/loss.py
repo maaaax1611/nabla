@@ -4,6 +4,7 @@ import numpy as np
 
 from nabla.backend import is_gpu_array
 from nabla.nn.module import Module
+from nabla.ops.loss import BCEWithLogitsLoss as BCEWithLogitsLossFunction
 from nabla.ops.loss import DiceLoss as DiceLossFunction
 from nabla.ops.loss import SoftmaxCrossEntropy
 from nabla.tensor import Tensor
@@ -74,6 +75,37 @@ class CrossEntropyLoss(Module):
                 f"Expected targets of shape ({logits.data.shape[0]},), got {targets.data.shape}."
             )
         return SoftmaxCrossEntropy.apply(logits, targets)
+
+
+class BCEWithLogitsLoss(Module):
+    """Binary cross-entropy computed directly from logits.
+
+    Expects `logits` to be raw, unnormalized scores - no sigmoid applied.
+    Numerically stable version of applying sigmoid then binary cross-
+    entropy separately (see `ops.loss.BCEWithLogitsLoss`).
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def forward(self, logits: Tensor, targets: Tensor) -> Tensor:
+        """Compute BCE loss between logits and binary targets.
+
+        Args:
+            logits: Raw model output, shape (batch, ...).
+            targets: Ground-truth binary labels, same shape as logits.
+
+        Returns:
+            Scalar tensor containing the mean BCE loss over every element.
+        """
+        if not isinstance(logits, Tensor) or not isinstance(targets, Tensor):
+            raise TypeError("Both logits and targets must be instances of Tensor.")
+        if logits.data.shape != targets.data.shape:
+            raise ValueError(
+                f"Logits and targets must have the same shape. "
+                f"Got {logits.data.shape} and {targets.data.shape}."
+            )
+        return BCEWithLogitsLossFunction.apply(logits, targets)
 
 
 class DiceLoss(Module):

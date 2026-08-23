@@ -101,6 +101,11 @@ last.
     construction entirely for forward passes that never call
     `.backward()` (validation/inference), avoiding gigabytes of retained
     im2col buffers that a real training loop uncovered on an 8GB GPU.
+30. [BCEWithLogitsLoss](30-bce-with-logits.md) — fused sigmoid +
+    cross-entropy for numerical stability, the same clean
+    `sigmoid(x) - y` gradient shape as `SoftmaxCrossEntropy`, and why
+    it's typically combined with Dice loss to escape the "predict all
+    background" plateau pure Dice gets stuck in on rare-class targets.
 
 Each doc also calls out real bugs that came up while implementing these ops —
 they're often more informative than the happy path.

@@ -32,10 +32,16 @@ class DoubleConv(Module):
 class UNet(Module):
     """2D U-Net (Ronneberger et al.) for binary segmentation.
 
+    Returns raw logits, not probabilities - apply `.sigmoid()` wherever a
+    probability is actually needed (e.g. before DiceLoss, or at inference
+    time). Leaving the final activation out lets the loss combine with a
+    numerically stable BCEWithLogitsLoss instead of computing sigmoid
+    and log separately (see docs/30-bce-with-logits.md).
+
     Args:
         in_channels: Number of channels in the input image.
         out_channels: Number of output mask channels (1 for binary
-            segmentation, one probability map per pixel).
+            segmentation, one logit per pixel).
         features: Channel count at each encoder stage, shallowest first.
             The bottleneck uses `features[-1] * 2`; the decoder mirrors
             `features` in reverse.
@@ -92,4 +98,4 @@ class UNet(Module):
             x = F.concat([skip, x], axis=1)
             x = decoder_stage(x)
 
-        return self.final_conv(x).sigmoid()
+        return self.final_conv(x)

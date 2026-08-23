@@ -56,6 +56,49 @@ class SoftmaxCrossEntropy(Function):
         return grad_logits, grad_targets
 
 
+class BCEWithLogitsLoss(Function):
+    """Binary cross-entropy computed directly from logits.
+
+    Shapes:
+        logits:  (batch, ...) raw, unnormalized scores (no sigmoid applied)
+        targets: (batch, ...) same shape, binary labels (0.0 or 1.0)
+        out:     scalar, mean loss over every element
+
+    Fusing sigmoid + log into one Function (rather than calling
+    `.sigmoid()` then `log()` separately) avoids ever computing log(0):
+    a confidently wrong prediction can push sigmoid(logits) to exactly
+    0.0 or 1.0 in float32, and log of that is -inf. The stable
+    formulation below is mathematically identical to
+    -[y*log(sigmoid(x)) + (1-y)*log(1-sigmoid(x))] but never evaluates
+    sigmoid or log on values that could over/underflow:
+
+        loss = max(x, 0) - x*y + log(1 + exp(-|x|))
+
+    and gives an equally simple backward pass to SoftmaxCrossEntropy's:
+    d(loss)/d(logits) = (sigmoid(logits) - targets) / num_elements.
+    """
+
+    def forward(self, logits: Tensor, targets: Tensor) -> NDArray:
+        self.save_for_backward(logits, targets)
+        xp = get_array_module(logits.data)
+        x, y = logits.data, targets.data
+
+        loss = xp.maximum(x, 0) - x * y + xp.log1p(xp.exp(-xp.abs(x)))
+        self.num_elements = x.size
+        return loss.mean()
+
+    def backward(self, grad_output: NDArray) -> tuple[NDArray, NDArray]:
+        logits, targets = self.saved_tensors
+        xp = get_array_module(grad_output)
+
+        sigmoid_x = 1 / (1 + xp.exp(-logits.data))
+        grad_logits = (sigmoid_x - targets.data) * (grad_output / self.num_elements)
+
+        # targets are fixed 0/1 labels, never differentiable
+        grad_targets = xp.zeros_like(targets.data)
+        return grad_logits, grad_targets
+
+
 class DiceLoss(Function):
     """Soft Dice loss: 1 - Dice coefficient, for binary segmentation.
 

@@ -58,6 +58,27 @@ def split_by_patient(
     return train, val
 
 
+def filter_tumor_containing(triples: list[tuple[str, str, str]]) -> list[tuple[str, str, str]]:
+    """Keep only triples whose mask has at least one tumor pixel.
+
+    A slow, one-time O(n) pass (reads every mask file) - call once at
+    startup to build a small pool for a *diagnostic* metric, not inside
+    the training loop.
+
+    Why this pool matters: DiceLoss gives dice_loss ~= 1 for a tumor-free
+    slice the moment the model's prediction has any diffuse non-zero
+    mass anywhere - completely normal behavior for a sigmoid output that
+    is never exactly 0, but devastating to an aggregate score once
+    ~56% of slices are tumor-free (see docs/27-dice-loss.md's empty-mask
+    discussion; the aggregate case is the same math, just diluted rather
+    than degenerate). A model can genuinely be finding tumors well and
+    still show an aggregate val_dice near 1.0. Evaluating on this
+    filtered pool instead measures the thing that's actually meaningful:
+    dice quality on the slices where there's something to find.
+    """
+    return [t for t in triples if np.load(t[2]).sum() > 0]
+
+
 def _block_reduce(arr: NDArray, factor: int, op: str) -> NDArray:
     """Downsample an (C, H, W) array's H/W by `factor` via block mean/max.
 
@@ -72,7 +93,11 @@ def _block_reduce(arr: NDArray, factor: int, op: str) -> NDArray:
 
 
 def load_batch(
-    triples: list[tuple[str, str, str]], indices: NDArray, downsample: int = 1
+    triples: list[tuple[str, str, str]],
+    indices: NDArray,
+    downsample: int = 1,
+    augment: bool = False,
+    rng: np.random.Generator | None = None,
 ) -> tuple[NDArray, NDArray]:
     """Load and stack the img/mask pair for each of `indices` into a batch.
 
@@ -88,6 +113,18 @@ def load_batch(
             pixels (see docs/27-dice-loss.md), and averaging-then-
             thresholding a mostly-background block would erase small or
             thin tumor regions that block-max preserves.
+        augment: If True, randomly flip each sample horizontally and/or
+            vertically (independently, 50% chance each) - img and mask
+            are flipped together so they stay aligned. A brain's tumor
+            location has no inherent left-right or up-down bias, so
+            flipping doesn't create anatomically unrealistic images; it's
+            "free" extra variety for a training set of only ~300
+            patients, which is what actually needs more diversity to
+            generalize. Only meant for training batches - a validation
+            batch should reflect the real distribution unmodified, so
+            leave this False when evaluating.
+        rng: Required when augment=True, used for the per-sample flip
+            coin flips.
 
     Returns:
         X: (len(indices), 2, H, W) float32 - stacked FLAIR + T1ce slices.
@@ -101,14 +138,23 @@ def load_batch(
         if downsample > 1:
             img = _block_reduce(img, downsample, op="mean")
             mask = _block_reduce(mask, downsample, op="max")
+        if augment:
+            if rng.random() < 0.5:
+                img, mask = img[:, :, ::-1], mask[:, :, ::-1]  # horizontal flip
+            if rng.random() < 0.5:
+                img, mask = img[:, ::-1, :], mask[:, ::-1, :]  # vertical flip
         imgs.append(img)
         masks.append(mask)
     return np.stack(imgs).astype(np.float32), np.stack(masks).astype(np.float32)
 
 
 def get_batch(
-    triples: list[tuple[str, str, str]], batch_size: int, rng: np.random.Generator, downsample: int = 1
+    triples: list[tuple[str, str, str]],
+    batch_size: int,
+    rng: np.random.Generator,
+    downsample: int = 1,
+    augment: bool = False,
 ) -> tuple[NDArray, NDArray]:
     """Sample a random batch of slices (with replacement across calls)."""
     indices = rng.integers(0, len(triples), size=batch_size)
-    return load_batch(triples, indices, downsample=downsample)
+    return load_batch(triples, indices, downsample=downsample, augment=augment, rng=rng)

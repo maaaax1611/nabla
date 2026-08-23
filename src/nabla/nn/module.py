@@ -43,6 +43,31 @@ class Module:
                 params.extend(value.parameters())
         return params
 
+    def _buffer_locations(self) -> list[tuple["Module", str]]:
+        """(owner, attr_name) for every plain-ndarray buffer (e.g.
+        BatchNorm2D's running_mean/running_var), in traversal order -
+        the same attribute-scanning convention `to()` uses to find them.
+        Yielding the *location* rather than the value lets callers both
+        read the current buffers (`buffers()`) and overwrite them in
+        lockstep (`load_state_dict()`), matched up the same way
+        `parameters()` already does for Tensors.
+        """
+        locations: list[tuple[Module, str]] = []
+        for name, value in self.__dict__.items():
+            if isinstance(value, Module):
+                locations.extend(value._buffer_locations())
+            elif isinstance(value, np.ndarray) or is_gpu_array(value):
+                locations.append((self, name))
+        return locations
+
+    def buffers(self) -> list[NDArray]:
+        """Non-trainable persistent state (e.g. BatchNorm2D's
+        running_mean/running_var) that must survive a checkpoint
+        round-trip but isn't learned via gradients, so it's not part of
+        `parameters()`.
+        """
+        return [getattr(owner, name) for owner, name in self._buffer_locations()]
+
     def to(self, device: str) -> "Module":
         """Move every parameter, buffer, and submodule to "cpu" or "cuda".
 
@@ -64,29 +89,48 @@ class Module:
                 setattr(self, name, to_device(value, device))
         return self
 
-    def state_dict(self) -> list[NDArray]:
-        """A CPU-resident snapshot of every parameter's values, in the
-        same order as `parameters()` - for checkpointing (see
-        `nabla/checkpoint.py`). Independent copies: mutating the
-        returned arrays, or continuing to train this module, never
-        changes the snapshot.
+    def state_dict(self) -> dict[str, list[NDArray]]:
+        """A CPU-resident snapshot of every parameter's and buffer's
+        values, in the same order as `parameters()`/`buffers()` - for
+        checkpointing (see `nabla/checkpoint.py`). Independent copies:
+        mutating the returned arrays, or continuing to train this
+        module, never changes the snapshot.
+
+        Buffers (e.g. BatchNorm2D's running_mean/running_var) are saved
+        alongside parameters, not just parameters - without them, eval
+        mode after loading a checkpoint would normalize with the
+        construction-time defaults (running_mean=0, running_var=1)
+        instead of the statistics actually learned during training.
         """
-        return [to_device(p.data, "cpu").copy() for p in self.parameters()]
+        return {
+            "params": [to_device(p.data, "cpu").copy() for p in self.parameters()],
+            "buffers": [to_device(b, "cpu").copy() for b in self.buffers()],
+        }
 
-    def load_state_dict(self, state: list[NDArray]) -> None:
-        """Load parameter values from a `state_dict()` snapshot back into
-        this module's parameters (matched by `parameters()` order).
+    def load_state_dict(self, state: dict[str, list[NDArray]]) -> None:
+        """Load parameter and buffer values from a `state_dict()`
+        snapshot back into this module (matched by `parameters()`/
+        `buffers()` order).
 
-        Each parameter's *current* device is preserved - loading a CPU
+        Each value's *current* device is preserved - loading a CPU
         snapshot into a model already moved to the GPU keeps it on the
         GPU, no separate `.to()` call needed after loading.
         """
         params = self.parameters()
-        if len(params) != len(state):
-            raise ValueError(f"Expected {len(params)} parameters, got {len(state)}.")
-        for param, value in zip(params, state):
+        param_values = state["params"]
+        if len(params) != len(param_values):
+            raise ValueError(f"Expected {len(params)} parameters, got {len(param_values)}.")
+        for param, value in zip(params, param_values):
             xp = get_array_module(param.data)
             param.data = xp.asarray(value)
+
+        buffer_locations = self._buffer_locations()
+        buffer_values = state["buffers"]
+        if len(buffer_locations) != len(buffer_values):
+            raise ValueError(f"Expected {len(buffer_locations)} buffers, got {len(buffer_values)}.")
+        for (owner, name), value in zip(buffer_locations, buffer_values):
+            xp = get_array_module(getattr(owner, name))
+            setattr(owner, name, xp.asarray(value))
 
     def zero_grad(self) -> None:
         """Set gradients of all parameters to None."""

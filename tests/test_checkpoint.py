@@ -5,6 +5,7 @@ import os
 import numpy as np
 
 from nabla.checkpoint import load_checkpoint, save_checkpoint
+from nabla.nn.batchnorm import BatchNorm2D
 from nabla.nn.linear import Linear
 from nabla.optim.adam import Adam
 from nabla.tensor import Tensor
@@ -16,8 +17,8 @@ class TestModuleStateDict:
         state = layer.state_dict()
         params = layer.parameters()
 
-        assert len(state) == len(params)
-        for saved, param in zip(state, params):
+        assert len(state["params"]) == len(params)
+        for saved, param in zip(state["params"], params):
             assert np.array_equal(saved, param.data)
 
     def test_state_dict_is_a_copy_not_a_view(self):
@@ -25,7 +26,7 @@ class TestModuleStateDict:
         state = layer.state_dict()
         layer.weight.data[:] = 999.0
 
-        assert not np.array_equal(state[0], layer.weight.data)
+        assert not np.array_equal(state["params"][0], layer.weight.data)
 
     def test_load_state_dict_restores_values(self):
         layer = Linear(4, 3)
@@ -40,13 +41,53 @@ class TestModuleStateDict:
     def test_load_state_dict_rejects_mismatched_length(self):
         layer = Linear(4, 3)
         try:
-            layer.load_state_dict([np.zeros(1)])
+            layer.load_state_dict({"params": [np.zeros(1)], "buffers": []})
             assert False, "expected ValueError"
         except ValueError:
             pass
 
+    def test_state_dict_includes_batchnorm_running_stats(self):
+        # the bug this guards against: running_mean/running_var are
+        # plain ndarrays, not Tensor parameters, so a state_dict that
+        # only walked parameters() would silently drop them - a loaded
+        # checkpoint would then normalize with construction-time
+        # defaults (mean=0, var=1) instead of what training learned
+        bn = BatchNorm2D(4)
+        bn.running_mean[:] = np.array([1.0, 2.0, 3.0, 4.0])
+        bn.running_var[:] = np.array([5.0, 6.0, 7.0, 8.0])
+
+        state = bn.state_dict()
+        assert len(state["buffers"]) == 2
+        assert np.array_equal(state["buffers"][0], bn.running_mean)
+        assert np.array_equal(state["buffers"][1], bn.running_var)
+
+    def test_load_state_dict_restores_batchnorm_running_stats(self):
+        bn = BatchNorm2D(4)
+        bn.running_mean[:] = np.array([1.0, 2.0, 3.0, 4.0])
+        bn.running_var[:] = np.array([5.0, 6.0, 7.0, 8.0])
+        state = bn.state_dict()
+
+        fresh = BatchNorm2D(4)  # running_mean=0, running_var=1 (construction defaults)
+        fresh.load_state_dict(state)
+
+        assert np.array_equal(fresh.running_mean, bn.running_mean)
+        assert np.array_equal(fresh.running_var, bn.running_var)
+
 
 class TestSaveLoadCheckpoint(object):
+    def test_round_trips_batchnorm_running_stats(self, tmp_path):
+        path = os.path.join(tmp_path, "ckpt.pkl")
+        bn = BatchNorm2D(4)
+        bn.running_mean[:] = np.array([1.0, 2.0, 3.0, 4.0])
+        bn.running_var[:] = np.array([5.0, 6.0, 7.0, 8.0])
+        save_checkpoint(path, bn)
+
+        fresh = BatchNorm2D(4)  # running_mean=0, running_var=1 (construction defaults)
+        load_checkpoint(path, fresh)
+
+        assert np.array_equal(fresh.running_mean, bn.running_mean)
+        assert np.array_equal(fresh.running_var, bn.running_var)
+
     def test_round_trips_model_weights(self, tmp_path):
         path = os.path.join(tmp_path, "ckpt.pkl")
         model = Linear(4, 3)

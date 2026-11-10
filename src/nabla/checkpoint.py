@@ -50,7 +50,7 @@ def load_checkpoint(path: str, model: Module, optimizer: Optimizer | None = None
     Loaded values land on whatever device `model`'s (and `optimizer`'s)
     parameters are *currently* on - call `model.to(device)` before
     loading if you want the restored model on a specific device, not
-    after (see docs/posts/07-engineering.md's note on `Adam`/`SGD` snapshotting
+    after (see docs/drafts/07-engineering.md's note on `Adam`/`SGD` snapshotting
     device at construction time - the same ordering caveat applies here).
 
     Returns:

@@ -1,0 +1,23 @@
+title: nabla
+lang: en
+eyebrow: Autograd · Networks · Training
+lede: How a small automatic differentiation library works, one topic per page — the math, the code that implements it, and figures you can step through.
+footer: All figures compute in the browser with small, hand-picked numbers. The code is at <a href="https://github.com/maaaax1611/nabla">github.com/maaaax1611/nabla</a>.
+home_label: nabla
+
+categories:
+  - id: core
+    title: Core
+    desc: Tensors, the computational graph and reverse-mode differentiation.
+  - id: networks
+    title: Networks
+    desc: Layers and architectures built on the core.
+  - id: training
+    title: Training
+    desc: From gradients to a trained model.
+
+planned:
+  - { category: networks, title: Neural networks, desc: "Modules, linear layers, activations, initialization and the softmax cross-entropy loss.", tags: [MLP, Linear, Softmax] }
+  - { category: networks, title: Convolutional networks, desc: "Convolution via im2col, pooling and batch normalization.", tags: [Conv2D, Pooling, BatchNorm] }
+  - { category: networks, title: Transformers, desc: "Embeddings, attention, layer normalization and the Transformer block.", tags: [Attention, LayerNorm, ViT] }
+  - { category: training, title: Optimizers and schedules, desc: "SGD, Adam, weight decay, dropout, learning-rate schedules and gradient clipping.", tags: [SGD, Adam, Dropout] }

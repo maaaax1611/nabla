@@ -1,0 +1,46 @@
+<!-- title: The forward pass builds the graph
+     lib: fig, ag
+     height: 520 -->
+<figure class="fig">
+  <canvas id="agf-cv" class="c-ag" role="img" aria-label="The graph of d = a times b, e = d plus a, L = e squared, built up one tensor at a time. Each new tensor is connected by arrows to the tensors it was computed from."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="agf-a">a</label><output id="agf-a-o"></output></div><input id="agf-a" type="range" min="-3" max="3" step="0.5" value="2" autocomplete="off"></div>
+    <div class="ctrl"><div class="lab"><label for="agf-b">b</label><output id="agf-b-o"></output></div><input id="agf-b" type="range" min="-3" max="3" step="0.5" value="3" autocomplete="off"></div>
+    <button class="btn" type="button" id="agf-step">Step</button>
+    <button class="btn" type="button" id="agf-play">Pause</button>
+  </div>
+  <div class="readout" id="agf-read"></div>
+  <figcaption><b>Fig.</b> Three lines of Python, executed one after the other. Each operation computes its value and records where it came from: the operation in <code>_ctx</code>, its inputs in <code>_prev</code>. Nothing else is stored. Note that <code>a</code> is used twice.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('agf-cv'), ia = $('agf-a'), ib = $('agf-b'), read = $('agf-read'), bStep = $('agf-step'), bPlay = $('agf-play');
+  const LINES = ['d = a * b', 'e = d + a', 'L = e ** 2'];
+  let step = 0, t = 1, hold = 0, playing = !Fig.reduceMotion;
+
+  function draw() {
+    const v = AG.forward(+ia.value, +ib.value), shown = { a: 1, b: 1 };
+    AG.ORDER.slice(0, step).forEach(n => { shown[n] = 1; });
+    const cur = step > 0 ? AG.ORDER[step - 1] : null;
+    AG.draw(cv, { values: v, shown, grow: cur ? { node: cur, t: Fig.ease(t) } : null, active: cur });
+    $('agf-a-o').textContent = AG.fmt(v.a); $('agf-b-o').textContent = AG.fmt(v.b);
+    const code = LINES.map((l, i) => i === step - 1 ? `<span class="hl">▸ ${l}</span>` : `<span class="k">  ${l}</span>`).join('<br>');
+    const tape = cur ? `${cur}._ctx = ${AG.NODES[cur].fn}   ${cur}._prev = (${AG.NODES[cur].from.join(', ')})` : 'a and b are leaves: no _ctx, no _prev';
+    read.innerHTML = `${code}<br><span class="k">recorded </span>${tape}`;
+    bPlay.textContent = playing ? 'Pause' : 'Play';
+  }
+  function advance() { step = step >= LINES.length ? 0 : step + 1; t = Fig.reduceMotion ? 1 : 0; hold = 0; }
+
+  Fig.loop(cv, dt => {
+    if (t < 1) { t = Math.min(1, t + dt / 0.55); draw(); return; }
+    if (!playing) return;
+    hold += dt;
+    if (hold > (step === LINES.length ? 2.4 : 1.1)) { advance(); draw(); }
+  });
+  bStep.addEventListener('click', () => { playing = false; advance(); draw(); });
+  bPlay.addEventListener('click', () => { playing = !playing; hold = 0; draw(); });
+  [ia, ib].forEach(el => el.addEventListener('input', draw));
+  Fig.onRedraw(cv, draw);
+})();
+</script>

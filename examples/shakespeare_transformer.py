@@ -1,13 +1,13 @@
 """Tiny character-level Transformer trained on Tiny Shakespeare.
 
 Combines every Transformer building block documented in
-docs/posts/05-transformer.md: Embedding + PositionalEncoding feed a stack of TransformerBlocks
+docs/drafts/05-transformer.md: Embedding + PositionalEncoding feed a stack of TransformerBlocks
 (held in a ModuleList), followed by a final LayerNorm and a Linear "head"
 projecting back to vocabulary size. Trained with a causal mask so position
 t can only attend to positions <= t - the actual language-modeling task
 (predict the next character) is what makes that mask necessary, which is
 why it's built here rather than inside TransformerBlock itself (see
-docs/posts/05-transformer.md).
+docs/drafts/05-transformer.md).
 
 This is a small proof-of-concept, not a serious language model - the model
 and training budget here are kept deliberately small to finish in a
@@ -16,11 +16,11 @@ output - expect recognizable word-shapes and structure emerging from what
 started as random noise, which is the point.
 
 Runs on the GPU automatically if nabla was installed with the `gpu` extra
-and a CUDA device is available (see docs/posts/07-engineering.md) - falls back to
+and a CUDA device is available (see docs/drafts/07-engineering.md) - falls back to
 plain NumPy on CPU otherwise, no code changes needed either way.
 
 Also exercises the training-infrastructure pieces from
-docs/posts/03-training.md and docs/posts/07-engineering.md: a warmup+cosine learning-rate schedule, global gradient-norm
+docs/drafts/03-training.md and docs/drafts/07-engineering.md: a warmup+cosine learning-rate schedule, global gradient-norm
 clipping, periodic checkpointing (re-running this script resumes from the
 last checkpoint instead of starting over), and metric logging to CSV.
 """
@@ -138,7 +138,7 @@ def main() -> None:
         max_len=block_size,
         dropout=0.1,
     )
-    model.to(device)  # before constructing the optimizer - see docs/posts/07-engineering.md
+    model.to(device)  # before constructing the optimizer - see docs/drafts/07-engineering.md
     criterion = CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=3e-4)
     scheduler = WarmupCosineLR(optimizer, warmup_steps=300, total_steps=steps, min_lr=3e-5)

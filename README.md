@@ -50,19 +50,17 @@ uv run python examples/shakespeare_transformer.py  # character-level Transformer
 
 ## How it works
 
-[`docs/`](docs/index.md) is a series of posts that derive the math behind
-each building block and map it onto the code — read them in order:
-
-1. [Autograd from scratch](docs/posts/01-autograd.md)
-2. [From a neuron to an MLP](docs/posts/02-mlp.md)
-3. [Training: optimizers, regularization, schedules](docs/posts/03-training.md)
-4. [Convolutional networks](docs/posts/04-cnn.md)
-5. [Attention and the Transformer](docs/posts/05-transformer.md)
-6. [Vision Transformer](docs/posts/06-vit.md)
-7. [Engineering: GPU, precision, checkpoints, logging](docs/posts/07-engineering.md)
-
-To read them as a website with rendered math:
+[`docs/`](docs/) holds the documentation: one page per topic with the math,
+the code that implements it and figures you can step through. It is built
+with [doc.md](https://github.com/maaaax1611/doc.md):
 
 ```bash
-uv run --group docs mkdocs serve
+uv run --group docs docmd serve docs     # http://127.0.0.1:8000
 ```
+
+- [Autograd](docs/pages/core/autograd.md): the computational graph, the
+  backward pass, broadcasting, gradient checks
+- Neural networks, convolutional networks, Transformers, optimizers: planned
+
+Bugs that came up along the way and how they were fixed are collected in the
+[engineering report](reports/engineering-report.md).

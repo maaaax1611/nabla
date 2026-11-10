@@ -1,6 +1,0 @@
-/* Wide display equations scroll inside their own box on narrow screens
-   instead of running past the page edge. */
-.md-typeset div.arithmatex {
-  overflow-x: auto;
-  overflow-y: hidden;
-}

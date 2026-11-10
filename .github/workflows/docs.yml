@@ -1,12 +1,12 @@
 name: docs
 
-# Builds the posts in docs/ and publishes them to GitHub Pages.
+# Builds docs/ with doc.md and publishes the result to GitHub Pages.
 # One-time setup: Settings -> Pages -> Source: "GitHub Actions".
 
 on:
   push:
     branches: [main]
-    paths: ["docs/**", "mkdocs.yml", ".github/workflows/docs.yml"]
+    paths: ["docs/**", ".github/workflows/docs.yml"]
   workflow_dispatch:
 
 permissions:
@@ -25,9 +25,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv sync --group docs
-      - run: uv run mkdocs build --strict
-        env:
-          NO_MKDOCS_2_WARNING: "1"
+      - run: uv run docmd build docs --out site
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

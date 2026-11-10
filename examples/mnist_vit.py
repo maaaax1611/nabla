@@ -1,9 +1,9 @@
 """MNIST digit classification with a Vision Transformer.
 
-See docs/posts/06-vit.md for the architecture: images become a
+See docs/drafts/06-vit.md for the architecture: images become a
 sequence of 4x4 patches, a learnable CLS token is prepended, a learned
 positional embedding is added, and the same TransformerBlock stack used
-for text (docs/posts/05-transformer.md) runs over the result - no mask,
+for text (docs/drafts/05-transformer.md) runs over the result - no mask,
 since a full image has no "future" to hide.
 
 Runs on plain NumPy (no GPU), so both the model and training budget here

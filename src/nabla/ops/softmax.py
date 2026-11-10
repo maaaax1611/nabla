@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 class Softmax(Function):
     """Standalone softmax, differentiable on its own (unlike the fused
     SoftmaxCrossEntropy in ops/loss.py, which never needs to backprop
-    through softmax by itself - see docs/05-softmax-cross-entropy.md for
+    through softmax by itself - see docs/posts/02-mlp.md for
     why that fusion collapses the gradient so much).
 
     Shapes:

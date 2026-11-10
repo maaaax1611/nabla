@@ -1,0 +1,76 @@
+site_name: nabla
+site_description: Building an automatic differentiation library from scratch - autograd, CNNs, Transformers.
+site_url: https://maaaax1611.github.io/nabla/
+repo_url: https://github.com/maaaax1611/nabla
+repo_name: maaaax1611/nabla
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.footer
+    - navigation.top
+    - toc.follow
+    - content.code.copy
+    - content.action.edit
+
+nav:
+  - Home: index.md
+  - The series:
+      - 1 · Autograd from scratch: posts/01-autograd.md
+      - 2 · From a neuron to an MLP: posts/02-mlp.md
+      - 3 · Training: posts/03-training.md
+      - 4 · Convolutional networks: posts/04-cnn.md
+      - 5 · Attention and the Transformer: posts/05-transformer.md
+      - 6 · Vision Transformer: posts/06-vit.md
+      - 7 · Engineering: posts/07-engineering.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra_javascript:
+  - javascripts/katex.js
+  - https://unpkg.com/katex@0.16.11/dist/katex.min.js
+  - https://unpkg.com/katex@0.16.11/dist/contrib/auto-render.min.js
+
+extra_css:
+  - stylesheets/extra.css
+  - https://unpkg.com/katex@0.16.11/dist/katex.min.css
+
+validation:
+  links:
+    anchors: warn
+    not_found: warn

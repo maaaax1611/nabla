@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from nabla.init import he
+from nabla.backend import get_default_dtype
 from nabla.nn.module import Module
 from nabla.tensor import Tensor
 
@@ -30,7 +31,7 @@ class Linear(Module):
         self.in_features = in_features
         self.out_features = out_features
         self.weight = Tensor(weight_init((in_features, out_features)), requires_grad=True)
-        self.bias = Tensor(np.zeros(out_features), requires_grad=True)
+        self.bias = Tensor(np.zeros(out_features, dtype=get_default_dtype()), requires_grad=True)
 
     def forward(self, x: Tensor) -> Tensor:
         """Apply linear transformation to input.

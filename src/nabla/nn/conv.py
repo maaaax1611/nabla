@@ -6,6 +6,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from nabla.init import he
+from nabla.backend import get_default_dtype
 from nabla.nn.module import Module
 from nabla.tensor import Tensor
 
@@ -41,7 +42,7 @@ class Conv2D(Module):
 
         weight_shape = (out_channels, in_channels, kernel_size, kernel_size)
         self.weight = Tensor(weight_init(weight_shape), requires_grad=True)
-        self.bias = Tensor(np.zeros(out_channels), requires_grad=True)
+        self.bias = Tensor(np.zeros(out_channels, dtype=get_default_dtype()), requires_grad=True)
 
     def forward(self, x: Tensor) -> Tensor:
         """Apply the convolution to input.

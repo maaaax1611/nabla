@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from nabla.backend import get_default_dtype
 from nabla.nn.module import Module
 from nabla.ops.batchnorm import BatchNorm2D as BatchNorm2DFunction
 from nabla.tensor import Tensor
@@ -29,12 +30,12 @@ class BatchNorm2D(Module):
         self.eps = eps
         self.momentum = momentum
 
-        self.gamma = Tensor(np.ones(num_features), requires_grad=True)
-        self.beta = Tensor(np.zeros(num_features), requires_grad=True)
+        self.gamma = Tensor(np.ones(num_features, dtype=get_default_dtype()), requires_grad=True)
+        self.beta = Tensor(np.zeros(num_features, dtype=get_default_dtype()), requires_grad=True)
 
         # running statistics: plain arrays, not learnable parameters
-        self.running_mean = np.zeros(num_features)
-        self.running_var = np.ones(num_features)
+        self.running_mean = np.zeros(num_features, dtype=get_default_dtype())
+        self.running_var = np.ones(num_features, dtype=get_default_dtype())
 
     def forward(self, x: Tensor) -> Tensor:
         if not isinstance(x, Tensor):

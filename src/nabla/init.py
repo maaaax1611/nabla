@@ -3,6 +3,8 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
+from nabla.backend import get_default_dtype
+
 
 def _fan_in_fan_out(shape: tuple[int, ...]) -> tuple[int, int]:
     """Compute fan_in/fan_out for a weight shape.
@@ -25,16 +27,16 @@ def _fan_in_fan_out(shape: tuple[int, ...]) -> tuple[int, int]:
 def he(shape: tuple[int, ...]) -> NDArray:
     """He (Kaiming) normal initialization, suitable for ReLU activations."""
     fan_in, _ = _fan_in_fan_out(shape)
-    return np.random.randn(*shape) * np.sqrt(2.0 / fan_in)
+    return (np.random.randn(*shape) * np.sqrt(2.0 / fan_in)).astype(get_default_dtype())
 
 
 def xavier(shape: tuple[int, ...]) -> NDArray:
     """Xavier (Glorot) uniform initialization, suitable for tanh/sigmoid activations."""
     fan_in, fan_out = _fan_in_fan_out(shape)
     limit = np.sqrt(6.0 / (fan_in + fan_out))
-    return np.random.uniform(-limit, limit, size=shape)
+    return np.random.uniform(-limit, limit, size=shape).astype(get_default_dtype())
 
 
 def zeros(shape: tuple[int, ...]) -> NDArray:
     """Initialize all weights to zero (rarely useful, e.g. for debugging)."""
-    return np.zeros(shape)
+    return np.zeros(shape, dtype=get_default_dtype())

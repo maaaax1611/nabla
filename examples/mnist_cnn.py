@@ -8,6 +8,7 @@ from nabla.nn.linear import Linear
 from nabla.nn.loss import CrossEntropyLoss
 from nabla.nn.module import Module
 from nabla.optim.adam import Adam
+from nabla.function import no_grad
 from nabla.tensor import Tensor
 
 
@@ -33,6 +34,7 @@ class SimpleCNN(Module):
         return self.fc(x)
 
 
+@no_grad()  # evaluation only - don't build a graph nobody will backprop through
 def accuracy(net: Module, X: Tensor, y: np.ndarray) -> float:
     logits = net(X)
     predicted = np.argmax(logits.data, axis=1)

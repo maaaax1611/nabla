@@ -13,10 +13,13 @@ nothing here does anything the Tensor methods couldn't already do.
 
 from __future__ import annotations
 
+import math
+
 import numpy as np
 
 from nabla.backend import get_array_module
-from nabla.ops.activation import ReLU, Sigmoid
+from nabla.ops.activation import GELU, ReLU, Sigmoid, Tanh
+from nabla.ops.basic import Exp, Log
 from nabla.ops.concat import Concat
 from nabla.ops.conv import Conv2D
 from nabla.ops.dropout import Dropout
@@ -36,6 +39,26 @@ def relu(x: Tensor) -> Tensor:
 def sigmoid(x: Tensor) -> Tensor:
     """Apply sigmoid activation element-wise."""
     return Sigmoid.apply(x)
+
+
+def tanh(x: Tensor) -> Tensor:
+    """Apply tanh activation element-wise."""
+    return Tanh.apply(x)
+
+
+def gelu(x: Tensor) -> Tensor:
+    """Apply GELU activation element-wise (tanh approximation)."""
+    return GELU.apply(x)
+
+
+def exp(x: Tensor) -> Tensor:
+    """Element-wise exponential."""
+    return Exp.apply(x)
+
+
+def log(x: Tensor) -> Tensor:
+    """Element-wise natural logarithm."""
+    return Log.apply(x)
 
 
 def softmax(x: Tensor, axis: int = -1) -> Tensor:
@@ -90,14 +113,14 @@ def avg_pool2d(x: Tensor, kernel_size: int, stride: int | None = None) -> Tensor
     return AvgPool2D.apply(x, kernel_size=kernel_size, stride=stride)
 
 
-def sum(x: Tensor) -> Tensor:
-    """Reduce all elements to a scalar by summation."""
-    return Sum.apply(x)
+def sum(x: Tensor, axis: int | tuple[int, ...] | None = None, keepdims: bool = False) -> Tensor:
+    """Sum over `axis` (all elements, giving a scalar, if axis is None)."""
+    return Sum.apply(x, axis=axis, keepdims=keepdims)
 
 
-def mean(x: Tensor) -> Tensor:
-    """Reduce all elements to a scalar by averaging."""
-    return Mean.apply(x)
+def mean(x: Tensor, axis: int | tuple[int, ...] | None = None, keepdims: bool = False) -> Tensor:
+    """Average over `axis` (all elements, giving a scalar, if axis is None)."""
+    return Mean.apply(x, axis=axis, keepdims=keepdims)
 
 
 def concat(tensors: list[Tensor], axis: int = 0) -> Tensor:
@@ -136,12 +159,12 @@ def scaled_dot_product_attention(Q: Tensor, K: Tensor, V: Tensor, mask: np.ndarr
     xp = get_array_module(Q.data)
 
     scores = matmul(Q, _swap_last_two_axes(K))
-    scores = scores * Tensor(xp.array(1 / xp.sqrt(d_k)))
+    scores = scores * (1 / math.sqrt(d_k))
     if mask is not None:
         # mask is a plain array the caller built (e.g. with np.triu for a
         # causal mask) - match it to Q's device rather than requiring
         # every caller to build it on the right device themselves
-        scores = scores + Tensor(xp.asarray(mask))
+        scores = scores + Tensor(xp.asarray(mask, dtype=scores.data.dtype))
 
     weights = softmax(scores, axis=-1)
     return matmul(weights, V)

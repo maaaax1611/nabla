@@ -3,10 +3,10 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from nabla.backend import get_array_module, to_device
+from nabla.backend import get_array_module, get_default_dtype, to_device
 from nabla.function import Function
-from nabla.ops.activation import ReLU, Sigmoid
-from nabla.ops.basic import Add, Divide, Multiply, Subtract
+from nabla.ops.activation import GELU, ReLU, Sigmoid, Tanh
+from nabla.ops.basic import Add, Divide, Exp, Log, Multiply, Neg, Pow, Subtract
 from nabla.ops.conv import Conv2D
 from nabla.ops.dropout import Dropout
 from nabla.ops.layernorm import LayerNorm
@@ -15,6 +15,9 @@ from nabla.ops.reduce import Mean, Sum
 from nabla.ops.slice import Slice
 from nabla.ops.softmax import Softmax
 from nabla.ops.transform import MatMul, Reshape, Transpose
+
+
+Scalar = int | float
 
 
 class Tensor:
@@ -31,7 +34,16 @@ class Tensor:
 
     def __init__(self, data: ArrayLike, requires_grad: bool = False) -> None:
         xp = get_array_module(data)
-        self.data: NDArray = data if isinstance(data, xp.ndarray) else np.array(data)
+        if isinstance(data, xp.ndarray):
+            self.data: NDArray = data
+        else:
+            self.data = np.array(data)
+            # Python floats / lists carry no dtype of their own, so they
+            # get the library default (see `nabla.set_default_dtype`).
+            # NumPy scalars (the result of e.g. `np.sum` inside an op)
+            # already have one and keep it.
+            if not isinstance(data, np.generic) and self.data.dtype.kind == "f":
+                self.data = self.data.astype(get_default_dtype(), copy=False)
         self.requires_grad = requires_grad
         self.grad: NDArray | None = None
         self._ctx: Function | None = None
@@ -112,17 +124,57 @@ class Tensor:
             tensor._ctx = None
             tensor._prev = ()
 
-    def __add__(self, other: Tensor) -> Tensor:
-        return Add.apply(self, other)
+    # Tell NumPy not to handle `ndarray <op> Tensor` itself (it would try
+    # to broadcast over the Tensor as an object array) - returning
+    # NotImplemented instead makes Python fall through to our __r*__ methods.
+    __array_ufunc__ = None
 
-    def __sub__(self, other: Tensor) -> Tensor:
-        return Subtract.apply(self, other)
+    def _wrap(self, other: Tensor | Scalar | ArrayLike) -> Tensor:
+        """Turn the other operand of a binary op into a Tensor.
 
-    def __mul__(self, other: Tensor) -> Tensor:
-        return Multiply.apply(self, other)
+        Lets `x * 2`, `1 - x` and `x + np_array` work without the caller
+        wrapping constants by hand. The constant lands on this tensor's
+        device and, for float tensors, takes this tensor's dtype - so a
+        float32 graph isn't silently promoted to float64 by a literal.
+        """
+        if isinstance(other, Tensor):
+            return other
+        xp = get_array_module(self.data)
+        dtype = self.data.dtype if self.data.dtype.kind == "f" else None
+        return Tensor(xp.asarray(other, dtype=dtype))
 
-    def __truediv__(self, other: Tensor) -> Tensor:
-        return Divide.apply(self, other)
+    def __add__(self, other: Tensor | Scalar) -> Tensor:
+        return Add.apply(self, self._wrap(other))
+
+    def __radd__(self, other: Scalar) -> Tensor:
+        return Add.apply(self._wrap(other), self)
+
+    def __sub__(self, other: Tensor | Scalar) -> Tensor:
+        return Subtract.apply(self, self._wrap(other))
+
+    def __rsub__(self, other: Scalar) -> Tensor:
+        return Subtract.apply(self._wrap(other), self)
+
+    def __mul__(self, other: Tensor | Scalar) -> Tensor:
+        return Multiply.apply(self, self._wrap(other))
+
+    def __rmul__(self, other: Scalar) -> Tensor:
+        return Multiply.apply(self._wrap(other), self)
+
+    def __truediv__(self, other: Tensor | Scalar) -> Tensor:
+        return Divide.apply(self, self._wrap(other))
+
+    def __rtruediv__(self, other: Scalar) -> Tensor:
+        return Divide.apply(self._wrap(other), self)
+
+    def __neg__(self) -> Tensor:
+        return Neg.apply(self)
+
+    def __pow__(self, exponent: Scalar) -> Tensor:
+        """Raise to a constant power, e.g. `x ** 2` or `x ** 0.5`."""
+        if isinstance(exponent, Tensor):
+            raise TypeError("Tensor exponents are not supported - use a Python number.")
+        return Pow.apply(self, exponent=exponent)
 
     def __matmul__(self, other: Tensor) -> Tensor:
         return MatMul.apply(self, other)
@@ -133,13 +185,44 @@ class Tensor:
         """
         return Slice.apply(self, key=key)
 
-    def sum(self) -> Tensor:
-        """Reduce all elements to a scalar by summation."""
-        return Sum.apply(self)
+    def sum(self, axis: int | tuple[int, ...] | None = None, keepdims: bool = False) -> Tensor:
+        """Sum over `axis` (all elements, giving a scalar, if axis is None)."""
+        return Sum.apply(self, axis=axis, keepdims=keepdims)
 
-    def mean(self) -> Tensor:
-        """Reduce all elements to a scalar by averaging."""
-        return Mean.apply(self)
+    def mean(self, axis: int | tuple[int, ...] | None = None, keepdims: bool = False) -> Tensor:
+        """Average over `axis` (all elements, giving a scalar, if axis is None)."""
+        return Mean.apply(self, axis=axis, keepdims=keepdims)
+
+    def exp(self) -> Tensor:
+        """Element-wise exponential."""
+        return Exp.apply(self)
+
+    def log(self) -> Tensor:
+        """Element-wise natural logarithm."""
+        return Log.apply(self)
+
+    def sqrt(self) -> Tensor:
+        """Element-wise square root."""
+        return Pow.apply(self, exponent=0.5)
+
+    def astype(self, dtype) -> Tensor:
+        """Convert the underlying data (and gradient, if any) to `dtype`.
+
+        Mutates and returns self, like `.to()` - meant for leaf tensors
+        (inputs, parameters), not for casting in the middle of a graph.
+        """
+        self.data = self.data.astype(dtype, copy=False)
+        if self.grad is not None:
+            self.grad = self.grad.astype(dtype, copy=False)
+        return self
+
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return self.data.shape
+
+    @property
+    def dtype(self):
+        return self.data.dtype
 
     def matmul(self, other: Tensor) -> Tensor:
         """Matrix multiplication with another tensor."""
@@ -184,6 +267,14 @@ class Tensor:
     def sigmoid(self) -> Tensor:
         """Apply sigmoid activation element-wise."""
         return Sigmoid.apply(self)
+
+    def tanh(self) -> Tensor:
+        """Apply tanh activation element-wise."""
+        return Tanh.apply(self)
+
+    def gelu(self) -> Tensor:
+        """Apply GELU activation element-wise (tanh approximation)."""
+        return GELU.apply(self)
 
     def dropout(self, p: float = 0.5) -> Tensor:
         """Apply inverted dropout element-wise, zeroing each element with probability p."""

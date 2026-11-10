@@ -31,6 +31,7 @@ import numpy as np
 from shakespeare_data import get_batch, load_shakespeare
 
 from nabla.backend import gpu_available, to_device
+from nabla.function import no_grad
 from nabla.checkpoint import load_checkpoint, save_checkpoint
 from nabla.logging import History
 from nabla.nn.container import ModuleList
@@ -91,6 +92,7 @@ def compute_loss(
     return criterion(logits_flat, targets_flat)  # y stays on CPU - CrossEntropyLoss moves it to match logits
 
 
+@no_grad()  # sampling only - don't build a graph nobody will backprop through
 def generate(
     model: CharTransformerLM, tokenizer, prompt: str, num_new_tokens: int, block_size: int, device: str
 ) -> str:
@@ -169,7 +171,8 @@ def main() -> None:
         if step % eval_interval == 0 or step == 1:
             model.eval()
             X_val, y_val = get_batch(val_ids, block_size, batch_size, rng)
-            val_loss = compute_loss(model, X_val, y_val, mask, criterion, device)
+            with no_grad():
+                val_loss = compute_loss(model, X_val, y_val, mask, criterion, device)
             model.train()
             history.log(step, val_loss=float(val_loss.data))
             print(

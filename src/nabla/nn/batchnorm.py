@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from nabla.backend import get_array_module, get_default_dtype
 from nabla.nn.module import Module
 from nabla.ops.batchnorm import BatchNorm2D as BatchNorm2DFunction
 from nabla.tensor import Tensor
@@ -29,12 +30,12 @@ class BatchNorm2D(Module):
         self.eps = eps
         self.momentum = momentum
 
-        self.gamma = Tensor(np.ones(num_features), requires_grad=True)
-        self.beta = Tensor(np.zeros(num_features), requires_grad=True)
+        self.gamma = Tensor(np.ones(num_features, dtype=get_default_dtype()), requires_grad=True)
+        self.beta = Tensor(np.zeros(num_features, dtype=get_default_dtype()), requires_grad=True)
 
         # running statistics: plain arrays, not learnable parameters
-        self.running_mean = np.zeros(num_features)
-        self.running_var = np.ones(num_features)
+        self.running_mean = np.zeros(num_features, dtype=get_default_dtype())
+        self.running_var = np.ones(num_features, dtype=get_default_dtype())
 
     def forward(self, x: Tensor) -> Tensor:
         if not isinstance(x, Tensor):
@@ -46,10 +47,12 @@ class BatchNorm2D(Module):
 
         if self.training:
             out = BatchNorm2DFunction.apply(x, self.gamma, self.beta, eps=self.eps)
-            # ctx (the Function instance) is reachable via out._ctx and still
-            # holds the batch statistics computed during forward
-            batch_mean = out._ctx.batch_mean.reshape(-1)
-            batch_var = out._ctx.batch_var.reshape(-1)
+            # batch statistics computed here rather than read from out._ctx:
+            # under no_grad() the result is not wired into the graph and has
+            # no _ctx, but running statistics must still be updated
+            xp = get_array_module(x.data)
+            batch_mean = xp.mean(x.data, axis=(0, 2, 3))
+            batch_var = xp.var(x.data, axis=(0, 2, 3))
             self.running_mean = (1 - self.momentum) * self.running_mean + self.momentum * batch_mean
             self.running_var = (1 - self.momentum) * self.running_var + self.momentum * batch_var
             return out

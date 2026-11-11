@@ -5,7 +5,7 @@ the shakespeare_transformer.py example, kept separate from the library
 like a real project would keep its dataset loading code next to the
 training script that uses it. Tokenization here is deliberately the
 simplest possible scheme (one integer per character) so the example needs
-no separate tokenizer implementation - see docs/11-embedding.md for why
+no separate tokenizer implementation - see docs/drafts/05-transformer.md for why
 that's a different concern than the Embedding layer itself.
 """
 

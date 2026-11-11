@@ -1,0 +1,7 @@
+/* Neural networks page */
+.c-nn { aspect-ratio: 2.4 / 1; }
+.c-nn-tall { aspect-ratio: 2 / 1; }
+@media (max-width: 560px) { .c-nn { aspect-ratio: 1.5 / 1; } .c-nn-tall { aspect-ratio: 0.78 / 1; } }
+.readout { white-space: pre-wrap; }
+.readout .hl { color: var(--accent); }
+.readout .gr { color: var(--hole); }

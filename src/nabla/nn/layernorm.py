@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from nabla.backend import get_default_dtype
 from nabla.nn.module import Module
 from nabla.ops.layernorm import LayerNorm as LayerNormFunction
 from nabla.tensor import Tensor
@@ -25,8 +26,8 @@ class LayerNorm(Module):
         self.num_features = num_features
         self.eps = eps
 
-        self.gamma = Tensor(np.ones(num_features), requires_grad=True)
-        self.beta = Tensor(np.zeros(num_features), requires_grad=True)
+        self.gamma = Tensor(np.ones(num_features, dtype=get_default_dtype()), requires_grad=True)
+        self.beta = Tensor(np.zeros(num_features, dtype=get_default_dtype()), requires_grad=True)
 
     def forward(self, x: Tensor) -> Tensor:
         if not isinstance(x, Tensor):

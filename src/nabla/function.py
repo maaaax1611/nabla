@@ -9,6 +9,46 @@ if TYPE_CHECKING:
     from nabla.tensor import Tensor
 
 
+_grad_enabled = True
+
+
+def is_grad_enabled() -> bool:
+    """True unless execution is currently inside a `no_grad()` block."""
+    return _grad_enabled
+
+
+class no_grad:
+    """Context manager (and decorator) that disables graph construction.
+
+    Inside the block every op still computes its forward result, but the
+    output tensor is not connected to its inputs and never requires grad -
+    so evaluation and sampling don't keep activations alive for a backward
+    pass that will never happen.
+
+        with nabla.no_grad():
+            logits = model(x)
+    """
+
+    def __enter__(self) -> None:
+        global _grad_enabled
+        self._prev = _grad_enabled
+        _grad_enabled = False
+
+    def __exit__(self, *exc) -> None:
+        global _grad_enabled
+        _grad_enabled = self._prev
+
+    def __call__(self, fn):
+        import functools
+
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            with self.__class__():
+                return fn(*args, **kwargs)
+
+        return wrapper
+
+
 class Function:
     """Base class for all differentiable operations.
 
@@ -52,10 +92,13 @@ class Function:
         result = ctx.forward(*inputs)
         out = Tensor(result)
 
-        out._ctx = ctx
-        out._prev = inputs
-
-        if any(t.requires_grad for t in inputs):
+        # Only wire the result into the graph if a gradient can actually
+        # flow through it. Otherwise the Function (and everything it saved
+        # for backward) is dropped right here instead of being kept alive
+        # by a tensor nobody will ever call backward() through.
+        if _grad_enabled and any(t.requires_grad for t in inputs):
+            out._ctx = ctx
+            out._prev = inputs
             out.requires_grad = True
 
         return out

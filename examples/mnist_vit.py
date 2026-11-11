@@ -1,9 +1,9 @@
 """MNIST digit classification with a Vision Transformer.
 
-See docs/17-vision-transformer.md for the architecture: images become a
+See docs/drafts/06-vit.md for the architecture: images become a
 sequence of 4x4 patches, a learnable CLS token is prepended, a learned
 positional embedding is added, and the same TransformerBlock stack used
-for text (docs/13-transformer-block.md) runs over the result - no mask,
+for text (docs/drafts/05-transformer.md) runs over the result - no mask,
 since a full image has no "future" to hide.
 
 Runs on plain NumPy (no GPU), so both the model and training budget here
@@ -23,9 +23,11 @@ from nabla.nn.loss import CrossEntropyLoss
 from nabla.nn.module import Module
 from nabla.nn.vit import VisionTransformer
 from nabla.optim.adam import Adam
+from nabla.function import no_grad
 from nabla.tensor import Tensor
 
 
+@no_grad()  # evaluation only - don't build a graph nobody will backprop through
 def accuracy(net: Module, X: Tensor, y: np.ndarray) -> float:
     logits = net(X)
     predicted = np.argmax(logits.data, axis=1)

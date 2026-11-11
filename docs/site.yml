@@ -1,0 +1,17 @@
+title: nabla
+lang: en
+eyebrow: Autograd · Networks · Training
+lede: How a small automatic differentiation library works, one topic per page — the math, the code that implements it, and figures you can step through.
+footer: All figures compute in the browser with small, hand-picked numbers. The code is at <a href="https://github.com/maaaax1611/nabla">github.com/maaaax1611/nabla</a>.
+home_label: nabla
+
+categories:
+  - id: core
+    title: Core
+    desc: Tensors, the computational graph and reverse-mode differentiation.
+  - id: networks
+    title: Networks
+    desc: Layers and architectures built on the core.
+  - id: training
+    title: Training
+    desc: From gradients to a trained model.

@@ -5,6 +5,7 @@ from typing import Callable
 import numpy as np
 from numpy.typing import NDArray
 
+from nabla.backend import get_default_dtype
 from nabla.nn.module import Module
 from nabla.ops.embedding import Embedding as EmbeddingFunction
 from nabla.tensor import Tensor
@@ -17,7 +18,7 @@ def _small_normal(shape: tuple[int, ...]) -> NDArray:
     inputs - each output row depends on exactly one input row, so the
     fan_in/fan_out reasoning behind He/Xavier doesn't apply here.
     """
-    return np.random.randn(*shape) * 0.01
+    return (np.random.randn(*shape) * 0.01).astype(get_default_dtype())
 
 
 class Embedding(Module):

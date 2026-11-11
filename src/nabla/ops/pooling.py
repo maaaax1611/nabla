@@ -96,7 +96,7 @@ class AvgPool2D(Function):
     def backward(self, grad_output: NDArray) -> tuple[NDArray]:
         # grad_output: (batch, channels, out_h, out_w)
         xp = get_array_module(grad_output)
-        grad_x = xp.zeros(self.input_shape)
+        grad_x = xp.zeros(self.input_shape, dtype=grad_output.dtype)
 
         for i in range(self.out_h):
             for j in range(self.out_w):

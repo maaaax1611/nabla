@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from nabla.backend import get_default_dtype
 from nabla.nn.module import Module
 from nabla.tensor import Tensor
 
@@ -17,7 +18,7 @@ def _sinusoidal_table(max_len: int, embed_dim: int) -> np.ndarray:
     angle_rates = 1.0 / np.power(10000.0, (2 * (i // 2)) / embed_dim)
     angles = position * angle_rates  # (max_len, embed_dim)
 
-    table = np.zeros((max_len, embed_dim))
+    table = np.zeros((max_len, embed_dim), dtype=get_default_dtype())
     table[:, 0::2] = np.sin(angles[:, 0::2])
     table[:, 1::2] = np.cos(angles[:, 1::2])
     return table

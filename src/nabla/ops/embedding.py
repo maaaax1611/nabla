@@ -36,7 +36,7 @@ class Embedding(Function):
         # contributions, not have the last one overwrite the others -
         # same np.add.at pattern as MaxPool2D's backward
         xp = get_array_module(grad_output)
-        grad_table = xp.zeros(self.table_shape)
+        grad_table = xp.zeros(self.table_shape, dtype=grad_output.dtype)
         xp.add.at(grad_table, self.indices, grad_output)
 
         # indices are integer IDs, never meaningful to differentiate

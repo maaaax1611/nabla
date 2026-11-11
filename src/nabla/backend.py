@@ -30,6 +30,30 @@ except ImportError:
     CUPY_AVAILABLE = False
 
 
+_default_dtype = np.dtype(np.float64)
+
+
+def set_default_dtype(dtype: Any) -> None:
+    """Set the float dtype used for newly created parameters and for
+    Python floats/lists wrapped in a Tensor (default: float64).
+
+    float32 halves memory and is noticeably faster on a GPU; float64 is
+    the safer choice for numerical gradient checks, which is why it stays
+    the default. Arrays that already have a dtype are never converted -
+    this only decides what gets *created*.
+    """
+    global _default_dtype
+    dtype = np.dtype(dtype)
+    if dtype.kind != "f":
+        raise ValueError(f"Default dtype must be a float type, got {dtype}.")
+    _default_dtype = dtype
+
+
+def get_default_dtype() -> np.dtype:
+    """The float dtype new parameters are created with (see `set_default_dtype`)."""
+    return _default_dtype
+
+
 def gpu_available() -> bool:
     """True if CuPy is installed *and* a working CUDA device is reachable.
 

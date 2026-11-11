@@ -1,13 +1,13 @@
 """Tiny character-level Transformer trained on Tiny Shakespeare.
 
-Combines every Transformer building block documented in docs/09 through
-docs/14: Embedding + PositionalEncoding feed a stack of TransformerBlocks
+Combines every Transformer building block documented in
+docs/drafts/05-transformer.md: Embedding + PositionalEncoding feed a stack of TransformerBlocks
 (held in a ModuleList), followed by a final LayerNorm and a Linear "head"
 projecting back to vocabulary size. Trained with a causal mask so position
 t can only attend to positions <= t - the actual language-modeling task
 (predict the next character) is what makes that mask necessary, which is
 why it's built here rather than inside TransformerBlock itself (see
-docs/13-transformer-block.md).
+docs/drafts/05-transformer.md).
 
 This is a small proof-of-concept, not a serious language model - the model
 and training budget here are kept deliberately small to finish in a
@@ -16,11 +16,11 @@ output - expect recognizable word-shapes and structure emerging from what
 started as random noise, which is the point.
 
 Runs on the GPU automatically if nabla was installed with the `gpu` extra
-and a CUDA device is available (see docs/19-gpu-support.md) - falls back to
+and a CUDA device is available (see docs/drafts/07-engineering.md) - falls back to
 plain NumPy on CPU otherwise, no code changes needed either way.
 
-Also exercises the training-infrastructure pieces from docs/20 through
-docs/23: a warmup+cosine learning-rate schedule, global gradient-norm
+Also exercises the training-infrastructure pieces from
+docs/drafts/03-training.md and docs/drafts/07-engineering.md: a warmup+cosine learning-rate schedule, global gradient-norm
 clipping, periodic checkpointing (re-running this script resumes from the
 last checkpoint instead of starting over), and metric logging to CSV.
 """
@@ -31,6 +31,7 @@ import numpy as np
 from shakespeare_data import get_batch, load_shakespeare
 
 from nabla.backend import gpu_available, to_device
+from nabla.function import no_grad
 from nabla.checkpoint import load_checkpoint, save_checkpoint
 from nabla.logging import History
 from nabla.nn.container import ModuleList
@@ -91,6 +92,7 @@ def compute_loss(
     return criterion(logits_flat, targets_flat)  # y stays on CPU - CrossEntropyLoss moves it to match logits
 
 
+@no_grad()  # sampling only - don't build a graph nobody will backprop through
 def generate(
     model: CharTransformerLM, tokenizer, prompt: str, num_new_tokens: int, block_size: int, device: str
 ) -> str:
@@ -136,7 +138,7 @@ def main() -> None:
         max_len=block_size,
         dropout=0.1,
     )
-    model.to(device)  # before constructing the optimizer - see docs/19-gpu-support.md
+    model.to(device)  # before constructing the optimizer - see docs/drafts/07-engineering.md
     criterion = CrossEntropyLoss()
     optimizer = Adam(model.parameters(), lr=3e-4)
     scheduler = WarmupCosineLR(optimizer, warmup_steps=300, total_steps=steps, min_lr=3e-5)
@@ -169,7 +171,8 @@ def main() -> None:
         if step % eval_interval == 0 or step == 1:
             model.eval()
             X_val, y_val = get_batch(val_ids, block_size, batch_size, rng)
-            val_loss = compute_loss(model, X_val, y_val, mask, criterion, device)
+            with no_grad():
+                val_loss = compute_loss(model, X_val, y_val, mask, criterion, device)
             model.train()
             history.log(step, val_loss=float(val_loss.data))
             print(

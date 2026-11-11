@@ -1,6 +1,6 @@
 """GPU backend tests: skipped entirely on machines without CuPy/a working
 CUDA device, so `uv run pytest` stays green on CPU-only machines (like CI).
-Run these on a GPU machine to actually exercise them - see docs/19-gpu-support.md.
+Run these on a GPU machine to actually exercise them - see docs/drafts/07-engineering.md.
 """
 
 from __future__ import annotations

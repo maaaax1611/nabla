@@ -1,0 +1,50 @@
+<!-- title: Sinusoidal positional encoding
+     lib: fig, tf
+     height: 560 -->
+<figure class="fig">
+  <canvas id="tp-cv" class="c-tf" role="img" aria-label="Left a heat map of the positional encoding table, positions as rows and dimensions as columns, with one position highlighted. Right the dot product of that position's encoding with every other position, a curve that peaks at the chosen position and has the same shape wherever that position is."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="tp-p">Position p</label><output id="tp-p-o"></output></div><input id="tp-p" type="range" min="0" max="63" step="1" value="20" autocomplete="off"></div>
+    <div class="ctrl"><div class="lab"><label for="tp-d">Dimension d</label></div>
+      <select id="tp-d" autocomplete="off"><option value="16">16</option><option value="32">32</option><option value="64" selected>64</option></select></div>
+  </div>
+  <div class="readout" id="tp-read"></div>
+  <figcaption><b>Fig.</b> Each pair of columns is a sine and a cosine with its own frequency, fast on the left, slow on the right, so every position gets a distinct pattern. On the right the similarity \(\mathrm{PE}(p)\cdot\mathrm{PE}(q)\), divided by its maximum \(d/2\): it depends only on the distance \(p - q\), so moving \(p\) shifts the curve without changing its shape.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('tp-cv'), ip = $('tp-p'), sd = $('tp-d'), read = $('tp-read'), P = 64;
+  const pe = (p, d) => Array.from({ length: d }, (_, i) => { const w = 1 / Math.pow(10000, 2 * Math.floor(i / 2) / d); return i % 2 ? Math.cos(p * w) : Math.sin(p * w); });
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), fg = Fig.token('--fg'), muted = Fig.token('--muted'), grid = Fig.token('--grid'), accent = Fig.token('--accent');
+    const d = +sd.value, p = +ip.value, narrow = w < 520;
+    const table = Array.from({ length: P }, (_, q) => pe(q, d));
+    const hb = narrow ? { x: 34, y: 24, w: w - 44, h: h * 0.5 - 40 } : { x: 34, y: 24, w: w * 0.46 - 34, h: h - 24 - 26 };
+    const cw = hb.w / d, ch = hb.h / P;
+    TF.label(ctx, 'PE table: position × dimension', hb.x, hb.y - 6);
+    for (let q = 0; q < P; q++) for (let i = 0; i < d; i++) { ctx.fillStyle = TF.diverge(table[q][i], 1); ctx.fillRect(hb.x + i * cw, hb.y + q * ch, cw + 0.5, ch + 0.5); }
+    ctx.strokeStyle = fg; ctx.lineWidth = 2; ctx.strokeRect(hb.x - 1, hb.y + p * ch - 1, hb.w + 2, ch + 2);
+    ctx.font = `500 11px ${Fig.MONO}`; ctx.fillStyle = muted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (const q of [0, 16, 32, 48, 63]) ctx.fillText(String(q), hb.x - 5, hb.y + q * ch + ch / 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (const i of [0, d / 2, d - 1]) ctx.fillText(String(i), hb.x + i * cw + cw / 2, hb.y + hb.h + 4);
+
+    const pb = narrow ? { x: 40, y: h * 0.5 + 36, w: w - 52, h: h * 0.5 - 62 } : { x: w * 0.46 + 46, y: 24, w: w * 0.54 - 58, h: h - 24 - 26 };
+    TF.label(ctx, 'PE(p) · PE(q) / (d/2)', pb.x, pb.y - 6);
+    const px = q => pb.x + q / (P - 1) * pb.w, py = v => pb.y + (1 - (v + 0.4) / 1.4) * pb.h;
+    ctx.lineWidth = 1; ctx.font = `500 11px ${Fig.MONO}`;
+    for (const v of [0, 0.5, 1]) { ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(pb.x, py(v)); ctx.lineTo(pb.x + pb.w, py(v)); ctx.stroke(); ctx.fillStyle = muted; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(TF.fmt(v, 1), pb.x - 6, py(v)); }
+    for (const q of [0, 16, 32, 48, 63]) { ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(px(q), pb.y); ctx.lineTo(px(q), pb.y + pb.h); ctx.stroke(); ctx.fillStyle = muted; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(String(q), px(q), pb.y + pb.h + 4); }
+    const sim = table.map(r => r.reduce((s, v, i) => s + v * table[p][i], 0) / (d / 2));
+    ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
+    sim.forEach((v, q) => q ? ctx.lineTo(px(q), py(v)) : ctx.moveTo(px(q), py(v))); ctx.stroke();
+    ctx.strokeStyle = fg; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(px(p), pb.y); ctx.lineTo(px(p), pb.y + pb.h); ctx.stroke(); ctx.setLineDash([]);
+    $('tp-p-o').textContent = String(p);
+    const near = p < P - 1 ? sim[p + 1] : sim[p - 1];
+    read.innerHTML = `<span class="k">fastest frequency </span>1 rad/position   <span class="k">slowest </span>1/${TF.fmt(Math.pow(10000, (d - 2) / d), 0)} rad/position\n<span class="k">similarity to the next position </span><span class="hl">${TF.fmt(near, 2)}</span>   <span class="k">to p ± 10 </span>${TF.fmt(sim[p + 10 < P ? p + 10 : p - 10], 2)}`;
+  }
+  [ip, sd].forEach(el => el.addEventListener('input', draw));
+  Fig.onRedraw(cv, draw);
+})();
+</script>

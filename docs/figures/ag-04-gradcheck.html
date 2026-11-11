@@ -1,0 +1,52 @@
+<!-- title: Numerical gradient check
+     lib: fig, ag
+     height: 560 -->
+<figure class="fig">
+  <canvas id="agn-cv" class="c-ag" role="img" aria-label="Relative error of a numerical derivative against the step size h on logarithmic axes, for the one-sided and the central difference. Both curves fall as h shrinks and rise again once rounding errors dominate."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="agn-h">Step size h</label><output id="agn-h-o"></output></div><input id="agn-h" type="range" min="-15" max="-1" step="0.5" value="-5" autocomplete="off"></div>
+  </div>
+  <div class="readout" id="agn-read"></div>
+  <figcaption><b>Fig.</b> Relative error of two difference quotients for \(f(x) = e^x \sin x\) at \(x = 1\), computed in double precision. Shrinking \(h\) reduces the truncation error until rounding takes over, because the difference of two nearly equal numbers loses digits. The central difference reaches about \(10^{-11}\) near \(h = 10^{-5}\), the step the tests use.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('agn-cv'), ih = $('agn-h'), read = $('agn-read');
+  const f = x => Math.exp(x) * Math.sin(x), X = 1, exact = Math.exp(X) * (Math.sin(X) + Math.cos(X));
+  const one = h => (f(X + h) - f(X)) / h, cen = h => (f(X + h) - f(X - h)) / (2 * h);
+  const rel = v => Math.max(1e-17, Math.abs(v - exact) / Math.abs(exact));
+  const sup = n => String(n).replace('-', '⁻').replace(/\./g, '·').replace(/\d/g, c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[c]);
+  const EXP = []; for (let e = -16; e <= 0; e += 0.25) EXP.push(e);
+  const C1 = EXP.map(e => Math.log10(rel(one(Math.pow(10, e))))), C2 = EXP.map(e => Math.log10(rel(cen(Math.pow(10, e)))));
+
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv);
+    const fg = Fig.token('--fg'), muted = Fig.token('--muted'), grid = Fig.token('--grid'), accent = Fig.token('--accent');
+    const L = 46, R = 12, T = 12, B = 34, bw = w - L - R, bh = h - T - B;
+    const px = e => L + (e + 16) / 16 * bw, py = v => T + (-v) / 16 * bh;
+    ctx.font = `500 11.5px ${Fig.MONO}`; ctx.lineWidth = 1;
+    for (let k = -16; k <= 0; k += 4) {
+      ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(px(k), T); ctx.lineTo(px(k), T + bh); ctx.moveTo(L, py(k)); ctx.lineTo(L + bw, py(k)); ctx.stroke();
+      ctx.fillStyle = muted; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText('10' + sup(k), px(k), T + bh + 6);
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText('10' + sup(k), L - 6, py(k));
+    }
+    ctx.font = `600 13px ${Fig.DISPLAY}`; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText('h', L + bw, T + bh - 4);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('relative error', L + 6, T + bh - 4);
+    const curve = (ys, color, width) => { ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = 'round'; ctx.beginPath(); EXP.forEach((e, i) => i ? ctx.lineTo(px(e), py(ys[i])) : ctx.moveTo(px(e), py(ys[i]))); ctx.stroke(); };
+    curve(C1, muted, 1.6); curve(C2, accent, 2.2);
+    ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+    ctx.fillStyle = muted; ctx.fillText('one-sided', px(-3.6), py(-2.2) - 12);
+    ctx.fillStyle = accent; ctx.fillText('central', px(-3.3), py(-10.6));
+
+    const e = +ih.value, hh = Math.pow(10, e), v1 = one(hh), v2 = cen(hh);
+    ctx.strokeStyle = fg; ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px(e), T); ctx.lineTo(px(e), T + bh); ctx.stroke(); ctx.setLineDash([]);
+    [[v1, muted], [v2, accent]].forEach(([v, c]) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(px(e), py(Math.log10(rel(v))), 4.5, 0, 2 * Math.PI); ctx.fill(); });
+    $('agn-h-o').textContent = '10' + sup(e);
+    const er = v => { const r = Math.abs(v - exact) / Math.abs(exact); if (r === 0) return '0'; const [m, x] = r.toExponential(1).split('e'); return `${m}·10${sup(+x)}`; };
+    read.innerHTML = `<span class="k">exact     </span>${exact.toFixed(12)}<br><span class="k">one-sided </span>${v1.toFixed(12)}  <span class="k">error</span> ${er(v1)}<br><span class="k">central   </span>${v2.toFixed(12)}  <span class="k">error</span> <span class="hl">${er(v2)}</span>`;
+  }
+  ih.addEventListener('input', draw);
+  Fig.onRedraw(cv, draw);
+})();
+</script>

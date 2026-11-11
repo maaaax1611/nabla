@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 
 import nabla.functional as F
-from nabla.backend import get_array_module
+from nabla.backend import get_array_module, get_default_dtype
 from nabla.nn.container import ModuleList
 from nabla.nn.layernorm import LayerNorm
 from nabla.nn.linear import Linear
@@ -54,8 +54,8 @@ class VisionTransformer(Module):
         self.patch_embed = PatchEmbedding(img_size, patch_size, in_channels, embed_dim)
         num_patches = self.patch_embed.num_patches
 
-        self.cls_token = Tensor(np.random.randn(1, 1, embed_dim) * 0.02, requires_grad=True)
-        self.pos_embedding = Tensor(np.random.randn(1, num_patches + 1, embed_dim) * 0.02, requires_grad=True)
+        self.cls_token = Tensor((np.random.randn(1, 1, embed_dim) * 0.02).astype(get_default_dtype()), requires_grad=True)
+        self.pos_embedding = Tensor((np.random.randn(1, num_patches + 1, embed_dim) * 0.02).astype(get_default_dtype()), requires_grad=True)
 
         self.blocks = ModuleList(
             [TransformerBlock(embed_dim, num_heads, hidden_dim, dropout) for _ in range(num_layers)]
@@ -74,7 +74,7 @@ class VisionTransformer(Module):
         x = self.patch_embed(images)  # (batch, num_patches, embed_dim)
 
         xp = get_array_module(self.cls_token.data)
-        cls_tokens = self.cls_token + Tensor(xp.zeros((batch, 1, self.cls_token.data.shape[-1])))
+        cls_tokens = self.cls_token + Tensor(xp.zeros((batch, 1, self.cls_token.data.shape[-1]), dtype=self.cls_token.data.dtype))
         x = F.concat([cls_tokens, x], axis=1)  # (batch, num_patches + 1, embed_dim)
         x = x + self.pos_embedding
 

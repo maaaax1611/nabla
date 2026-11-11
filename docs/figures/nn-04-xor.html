@@ -1,0 +1,87 @@
+<!-- title: Training a small network on XOR
+     lib: fig, nn
+     height: 600 -->
+<figure class="fig">
+  <canvas id="nnx-cv" class="c-nn-tall" role="img" aria-label="Left the output of the network over the input plane with the four XOR points, right the loss over the training steps. During training the surface bends until the two classes are separated."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="nnx-act">Hidden activation</label></div>
+      <select id="nnx-act" autocomplete="off"><option value="relu">ReLU</option><option value="tanh">Tanh</option><option value="none">none (linear)</option></select></div>
+    <div class="ctrl"><div class="lab"><label for="nnx-lr">Learning rate</label><output id="nnx-lr-o"></output></div><input id="nnx-lr" type="range" min="0.05" max="1" step="0.05" value="0.5" autocomplete="off"></div>
+    <button class="btn" type="button" id="nnx-reset">New weights</button>
+    <button class="btn" type="button" id="nnx-play">Pause</button>
+  </div>
+  <div class="readout" id="nnx-read"></div>
+  <figcaption><b>Fig.</b> A network with 2 inputs, 8 hidden units and a sigmoid output, trained with mean squared error and plain gradient descent on the four XOR points. Left its output over the input plane, right the loss. Without a hidden activation the network stays linear and the loss cannot fall below 0.25.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('nnx-cv'), sel = $('nnx-act'), ilr = $('nnx-lr'), bPlay = $('nnx-play');
+  const H = 8, DATA = [[0, 0, 0], [0, 1, 1], [1, 0, 1], [1, 1, 0]], MAX = 3000, G = 36;
+  const IDENT = { f: x => x, d: () => 1 };
+  let seed = 3, net, step, hist;
+  const act = () => sel.value === 'none' ? IDENT : NN.ACT[sel.value];
+
+  function init() {
+    const r = NN.rng(seed), s1 = Math.sqrt(2 / 2), s2 = Math.sqrt(2 / H);        // He initialisation, biases zero
+    net = { W1: Float64Array.from({ length: 2 * H }, () => r.g() * s1), b1: new Float64Array(H), W2: Float64Array.from({ length: H }, () => r.g() * s2), b2: 0 };
+    step = 0; hist = [loss()];
+  }
+  function forward(x1, x2, a, cache) {
+    let o = net.b2;
+    for (let j = 0; j < H; j++) { const z = x1 * net.W1[j] + x2 * net.W1[H + j] + net.b1[j], hj = a.f(z); if (cache) { cache.z[j] = z; cache.h[j] = hj; } o += hj * net.W2[j]; }
+    return NN.sig(o);
+  }
+  function loss() { const a = act(); return DATA.reduce((s, [x1, x2, y]) => s + (forward(x1, x2, a) - y) ** 2, 0) / DATA.length; }
+  function train(lr) {
+    const a = act(), gW1 = new Float64Array(2 * H), gb1 = new Float64Array(H), gW2 = new Float64Array(H), c = { z: new Float64Array(H), h: new Float64Array(H) };
+    let gb2 = 0;
+    for (const [x1, x2, y] of DATA) {
+      const p = forward(x1, x2, a, c), dO = 2 * (p - y) / DATA.length * p * (1 - p);      // MSE, then sigmoid
+      gb2 += dO;
+      for (let j = 0; j < H; j++) { gW2[j] += dO * c.h[j]; const dz = dO * net.W2[j] * a.d(c.z[j]); gW1[j] += dz * x1; gW1[H + j] += dz * x2; gb1[j] += dz; }
+    }
+    for (let j = 0; j < H; j++) { net.W1[j] -= lr * gW1[j]; net.W1[H + j] -= lr * gW1[H + j]; net.b1[j] -= lr * gb1[j]; net.W2[j] -= lr * gW2[j]; }
+    net.b2 -= lr * gb2; step++;
+  }
+
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), accent = Fig.token('--accent'), hole = Fig.token('--hole'), fg = Fig.token('--fg'), surface = Fig.token('--surface'), muted = Fig.token('--muted');
+    const a = act(), narrow = w < 520, LO = -0.4, HI = 1.4;                 // narrow: loss below the map instead of beside it
+    const side = narrow ? Math.min(w - 60, (h - 100) * 0.62) : Math.min(h - 24 - 26, w * 0.44), mb = { x: narrow ? (w - side) / 2 : 30, y: 24, w: side, h: side };
+    const { px, py } = NN.frame(ctx, mb, { xmin: LO, xmax: HI, ymin: LO, ymax: HI, xticks: [0, 1], yticks: [0, 1], title: 'network output' });
+    const cs = side / G;
+    for (let i = 0; i < G; i++) for (let j = 0; j < G; j++) {
+      const p = forward(LO + (i + 0.5) / G * (HI - LO), HI - (j + 0.5) / G * (HI - LO), a);
+      ctx.fillStyle = p >= 0.5 ? NN.mix(surface, accent, (p - 0.5) * 1.5) : NN.mix(surface, hole, (0.5 - p) * 1.5);
+      ctx.fillRect(mb.x + i * cs, mb.y + j * cs, cs + 0.6, cs + 0.6);
+    }
+    for (const [x1, x2, y] of DATA) {
+      ctx.fillStyle = y ? accent : hole; ctx.strokeStyle = fg; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(px(x1), py(x2), 7, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    }
+    const lb = narrow ? { x: 44, y: mb.y + side + 50, w: w - 44 - 20, h: h - (mb.y + side + 50) - 26 } : { x: mb.x + side + 58, y: 24, w: w - (mb.x + side + 58) - 20, h: side };
+    const f = NN.frame(ctx, lb, { xmin: 0, xmax: MAX, ymin: -4, ymax: 0, xticks: [0, 1000, 2000, 3000], yticks: narrow ? [-4, -2, 0] : [-4, -3, -2, -1, 0], yfmt: v => '10' + NN.sup(v), title: 'loss' });
+    ctx.strokeStyle = muted; ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(lb.x, f.py(Math.log10(0.25))); ctx.lineTo(lb.x + lb.w, f.py(Math.log10(0.25))); ctx.stroke(); ctx.setLineDash([]);
+    ctx.strokeStyle = accent; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
+    hist.forEach((v, i) => { const x = f.px(i * 10), y = f.py(Fig.clamp(Math.log10(v), -4, 0)); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke();
+    $('nnx-lr-o').textContent = NN.fmt(+ilr.value, 2);
+    const preds = DATA.map(([x1, x2, y]) => `${x1}${x2}<span class="k">→</span>${NN.fmt(forward(x1, x2, a), 2)}`).join('  ');
+    $('nnx-read').innerHTML = `<span class="k">step </span>${step}   <span class="k">loss </span><span class="hl">${hist[hist.length - 1].toFixed(4)}</span><br><span class="k">output </span>${preds}`;
+    bPlay.textContent = anim.running ? 'Pause' : 'Play';
+  }
+  const anim = Fig.loop(cv, () => {
+    if (step >= MAX) return;
+    for (let k = 0; k < 10; k++) train(+ilr.value);
+    hist.push(loss()); draw();
+  });
+  init();
+  const restart = () => { init(); draw(); };
+  $('nnx-reset').addEventListener('click', () => { seed += 1; restart(); });
+  sel.addEventListener('input', restart);
+  ilr.addEventListener('input', draw);
+  bPlay.addEventListener('click', () => { anim.toggle(); draw(); });
+  Fig.onRedraw(cv, draw);
+})();
+</script>

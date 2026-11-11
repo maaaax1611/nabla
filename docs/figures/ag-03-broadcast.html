@@ -1,0 +1,72 @@
+<!-- title: Broadcasting forward, summing backward
+     lib: fig, ag
+     height: 560 -->
+<figure class="fig">
+  <canvas id="agc-cv" class="c-ag-wide" role="img" aria-label="A bias vector with three entries and a four by three matrix. Forward, the bias is copied into every row. Backward, the gradient of every column is summed into the matching bias entry."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="agc-mode">Direction</label></div>
+      <select id="agc-mode" autocomplete="off"><option value="f">forward: out = x + b</option><option value="b" selected>backward: b.grad</option></select></div>
+    <button class="btn" type="button" id="agc-replay">Replay</button>
+    <button class="btn" type="button" id="agc-new">New numbers</button>
+  </div>
+  <figcaption><b>Fig.</b> <code>x + b</code> with <code>x</code> of shape (4, 3) and <code>b</code> of shape (3,). Forward, NumPy copies <code>b</code> into every row. Backward, each entry of <code>b</code> has influenced a whole column of the output, so its gradient is the sum over that column.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('agc-cv'), mode = $('agc-mode'), N = 4, C = 3;
+  let x, b, g, t = Fig.reduceMotion ? 1 : 0, hold = 0;
+  const ri = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
+  function roll() {
+    x = Array.from({ length: N }, () => Array.from({ length: C }, () => ri(0, 9)));
+    b = Array.from({ length: C }, () => ri(1, 5));
+    g = Array.from({ length: N }, () => Array.from({ length: C }, () => ri(-2, 3)));
+  }
+  const arrive = i => Fig.clamp((t - i * 0.17) / 0.4, 0, 1);         // progress of row i, rows start one after the other
+
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), back = mode.value === 'b';
+    const fg = Fig.token('--fg'), muted = Fig.token('--muted'), rule = Fig.token('--rule'), accent = Fig.token('--accent');
+    const soft = Fig.token('--accent-soft'), surface = Fig.token('--surface'), hole = Fig.token('--hole');
+    const cs = Math.min((h - 46) / (N + 1.9), w / (C + 3.2)), gw = C * cs, x0 = (w - gw) / 2, yb = 22, yg = yb + cs * 1.9;
+    const cell = (cx, cy, text, fill, stroke, color) => {
+      ctx.fillStyle = fill; ctx.strokeStyle = stroke; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.roundRect(cx + 2, cy + 2, cs - 4, cs - 4, 4); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = color; ctx.font = `500 ${Math.max(11, cs * 0.34)}px ${Fig.MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(AG.fmt(text), cx + cs / 2, cy + cs / 2 + 1);
+    };
+    ctx.font = `600 13px ${Fig.DISPLAY}`; ctx.fillStyle = muted; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(back ? 'b.grad  (3,)' : 'b  (3,)', x0 + 2, yb - 7);
+    ctx.fillText(back ? '∂L/∂out  (4, 3)' : 'out = x + b  (4, 3)', x0 + 2, yg - 7);
+
+    for (let j = 0; j < C; j++) {
+      let top = b[j];
+      if (back) { top = 0; for (let i = 0; i < N; i++) if (arrive(i) >= 1) top += g[i][j]; }
+      cell(x0 + j * cs, yb, top, back ? surface : soft, back ? hole : accent, back ? hole : fg);
+    }
+    for (let i = 0; i < N; i++) for (let j = 0; j < C; j++) {
+      const p = arrive(i), cx = x0 + j * cs, cy = yg + i * cs;
+      if (back) cell(cx, cy, g[i][j], surface, rule, p >= 1 ? muted : fg);
+      else cell(cx, cy, p >= 1 ? x[i][j] + b[j] : x[i][j], p >= 1 ? surface : 'transparent', rule, p >= 1 ? fg : muted);
+    }
+    for (let i = 0; i < N; i++) {                                    // values in flight
+      const p = arrive(i); if (p <= 0 || p >= 1) continue;
+      const e = Fig.ease(p);
+      for (let j = 0; j < C; j++) {
+        const cy = back ? Fig.lerp(yg + i * cs, yb, e) : Fig.lerp(yb, yg + i * cs, e);
+        ctx.globalAlpha = 0.9; cell(x0 + j * cs, cy, back ? g[i][j] : b[j], soft, back ? hole : accent, back ? hole : fg); ctx.globalAlpha = 1;
+      }
+    }
+  }
+  const restart = () => { t = Fig.reduceMotion ? 1 : 0; hold = 0; draw(); };
+  roll();
+  Fig.loop(cv, dt => {
+    if (t < 1) { t = Math.min(1, t + dt / 2.6); draw(); return; }
+    hold += dt; if (hold > 2.6) restart();
+  });
+  mode.addEventListener('change', restart);
+  $('agc-replay').addEventListener('click', restart);
+  $('agc-new').addEventListener('click', () => { roll(); restart(); });
+  Fig.onRedraw(cv, draw);
+})();
+</script>

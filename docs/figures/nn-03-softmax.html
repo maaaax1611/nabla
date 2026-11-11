@@ -1,0 +1,46 @@
+<!-- title: Softmax, cross-entropy and their gradient
+     lib: fig, nn
+     height: 560 -->
+<figure class="fig">
+  <canvas id="nns-cv" class="c-nn" role="img" aria-label="Three bar charts for three classes: the logits, the softmax probabilities with the target class marked, and the gradient of the loss with respect to the logits."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="nns-z0">Logit z₀</label><output id="nns-z0-o"></output></div><input id="nns-z0" type="range" min="-4" max="4" step="0.1" value="2" autocomplete="off"></div>
+    <div class="ctrl"><div class="lab"><label for="nns-z1">Logit z₁</label><output id="nns-z1-o"></output></div><input id="nns-z1" type="range" min="-4" max="4" step="0.1" value="1" autocomplete="off"></div>
+    <div class="ctrl"><div class="lab"><label for="nns-z2">Logit z₂</label><output id="nns-z2-o"></output></div><input id="nns-z2" type="range" min="-4" max="4" step="0.1" value="-1" autocomplete="off"></div>
+    <div class="ctrl"><div class="lab"><label for="nns-t">Target class</label></div>
+      <select id="nns-t" autocomplete="off"><option value="0">0</option><option value="1" selected>1</option><option value="2">2</option></select></div>
+  </div>
+  <div class="readout" id="nns-read"></div>
+  <figcaption><b>Fig.</b> Softmax turns the logits into probabilities; the loss is \(-\ln\) of the probability of the target class. The gradient with respect to the logits is simply \(p - y\): negative for the target, whose logit should rise, positive for the others. Its entries always sum to zero. Adding the same number to all logits changes nothing.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('nns-cv'), ins = [0, 1, 2].map(i => $('nns-z' + i)), tgt = $('nns-t');
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), accent = Fig.token('--accent'), fg = Fig.token('--fg'), muted = Fig.token('--muted'), hole = Fig.token('--hole'), soft = Fig.token('--accent-soft');
+    const z = ins.map(el => +el.value), t = +tgt.value, m = Math.max(...z), e = z.map(v => Math.exp(v - m)), s = e.reduce((a, b) => a + b, 0);
+    const p = e.map(v => v / s), g = p.map((v, i) => v - (i === t ? 1 : 0)), loss = -Math.log(p[t]);
+    const gap = 40, L = 34, bw = (w - L - 2 * gap - 6) / 3, bh = h - 24 - 26;
+    const panel = (k, title, vals, ymin, ymax, yticks, color) => {
+      const box = { x: L + k * (bw + gap), y: 24, w: bw, h: bh };
+      const { px, py } = NN.frame(ctx, box, { xmin: -0.6, xmax: 2.6, ymin, ymax, xticks: [0, 1, 2], yticks, title });
+      const barw = Math.min(34, bw / 5);
+      vals.forEach((v, i) => {
+        ctx.fillStyle = color(v, i); const y0 = py(0), y1 = py(Fig.clamp(v, ymin, ymax));
+        ctx.fillRect(px(i) - barw / 2, Math.min(y0, y1), barw, Math.max(1.5, Math.abs(y1 - y0)));
+        ctx.fillStyle = fg; ctx.font = `500 11px ${Fig.MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = v >= 0 ? 'bottom' : 'top';
+        ctx.fillText(NN.fmt(v, 2), px(i), y1 + (v >= 0 ? -3 : 3));
+      });
+      ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(box.x, py(0)); ctx.lineTo(box.x + box.w, py(0)); ctx.stroke();
+    };
+    panel(0, 'logits z', z, -4.6, 4.6, [-4, -2, 0, 2, 4], () => muted);
+    panel(1, 'p = softmax(z)', p, 0, 1.15, [0, 0.5, 1], (v, i) => i === t ? accent : soft);
+    panel(2, '∂L/∂z = p − y', g, -1.15, 1.15, [-1, 0, 1], v => hole);
+    ins.forEach((el, i) => { $('nns-z' + i + '-o').textContent = NN.fmt(z[i], 1); });
+    $('nns-read').innerHTML = `<span class="k">loss  </span><span class="hl">−ln p${'₀₁₂'[t]} = ${NN.fmt(loss, 3)}</span><br><span class="k">sum of the gradient </span>${NN.fmt(g.reduce((a, b) => a + b, 0), 3)}`;
+  }
+  [...ins, tgt].forEach(el => el.addEventListener('input', draw));
+  Fig.onRedraw(cv, draw);
+})();
+</script>

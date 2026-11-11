@@ -1,0 +1,58 @@
+<!-- title: Scores, causal mask and attention weights
+     lib: fig, tf
+     height: 520 -->
+<figure class="fig">
+  <canvas id="tm-cv" class="c-tf-mat" role="img" aria-label="Three five by five matrices for the characters h, e, l, l, o: the scaled scores, the scores with the causal mask applied, and the attention weights after a row-wise softmax. One query row is highlighted."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="tm-m">Mask</label></div>
+      <select id="tm-m" autocomplete="off"><option value="causal">causal</option><option value="none">none</option></select></div>
+    <div class="ctrl"><div class="lab"><label for="tm-r">Query row</label><output id="tm-r-o"></output></div><input id="tm-r" type="range" min="0" max="4" step="1" value="2" autocomplete="off"></div>
+    <button class="btn" type="button" id="tm-new">New Q, K</button>
+  </div>
+  <div class="readout" id="tm-read"></div>
+  <figcaption><b>Fig.</b> Rows are queries, columns are keys. The causal mask sets every score above the diagonal to \(-\infty\) before the softmax, so position \(t\) can only draw on positions \(0, \dots, t\): when predicting the next character, the model must not see it. Each row of the weights sums to 1. Q and K are random here, so the weights carry no meaning; in a trained model they come from learned projections.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('tm-cv'), sm = $('tm-m'), ir = $('tm-r'), read = $('tm-read'), TOK = ['h', 'e', 'l', 'l', 'o'], N = 5, D = 4;
+  let seed = 4, S;
+  function roll() {
+    const r = TF.rng(seed), Q = Array.from({ length: N }, () => Array.from({ length: D }, r.g)), K = Array.from({ length: N }, () => Array.from({ length: D }, r.g));
+    S = Q.map(q => K.map(k => q.reduce((s, v, i) => s + v * k[i], 0) / Math.sqrt(D)));
+  }
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), fg = Fig.token('--fg'), muted = Fig.token('--muted'), rule = Fig.token('--rule'), bg = Fig.token('--bg'), accent = Fig.token('--accent');
+    const causal = sm.value === 'causal', row = +ir.value, narrow = w < 520;
+    const M = S.map((r, i) => r.map((v, j) => causal && j > i ? -Infinity : v)), A = M.map(TF.softmax);
+    const panels = narrow ? ['masked', 'weights'] : ['scores', 'masked', 'weights'], np = panels.length;
+    const lab = 18, gap = 1.1, top = 44;
+    const cs = Math.min((w - 12 - np * lab) / (np * N + (np - 1) * gap), (h - top - 8) / N);
+    const total = np * N * cs + (np - 1) * gap * cs + np * lab, x0 = (w - total) / 2;
+    const smax = Math.max(...S.flat().map(Math.abs));
+    const titles = { scores: 'scores QKᵀ/√d', masked: causal ? '+ causal mask' : 'no mask', weights: 'softmax per row' };
+    panels.forEach((p, k) => {
+      const xp = x0 + k * (N * cs + gap * cs + lab) + lab, yp = top;
+      TF.label(ctx, titles[p], xp, yp - 18);
+      ctx.font = `600 12px ${Fig.MONO}`; ctx.fillStyle = muted; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      TOK.forEach((t, j) => ctx.fillText(t, xp + j * cs + cs / 2, yp - 2));
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      TOK.forEach((t, i) => { ctx.fillStyle = i === row ? fg : muted; ctx.fillText(t, xp - 5, yp + i * cs + cs / 2); });
+      for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+        const x = xp + j * cs, y = yp + i * cs;
+        if (p === 'scores') TF.cell(ctx, x, y, cs, { fill: TF.diverge(S[i][j], smax), stroke: rule, text: TF.fmt(S[i][j]) });
+        else if (p === 'masked') TF.cell(ctx, x, y, cs, isFinite(M[i][j]) ? { fill: TF.diverge(M[i][j], smax), stroke: rule, text: TF.fmt(M[i][j]) } : { fill: bg, stroke: rule, text: '−∞', color: muted });
+        else TF.cell(ctx, x, y, cs, { fill: TF.mix(Fig.token('--surface'), accent, 0.85 * A[i][j]), stroke: rule, text: TF.fmt(A[i][j], 2), color: A[i][j] > 0.55 ? Fig.token('--surface') : fg });
+      }
+      TF.outline(ctx, xp, yp + row * cs, N * cs, cs, fg, 2);
+    });
+    $('tm-r-o').textContent = `${row} (${TOK[row]})`;
+    const seen = TOK.slice(0, causal ? row + 1 : N).join(' ');
+    read.innerHTML = `<span class="k">query ${row} (${TOK[row]}) attends to  </span>${seen}\n<span class="k">weights  </span>${A[row].map(v => TF.fmt(v, 2)).join('  ')}   <span class="k">sum = </span><span class="hl">${TF.fmt(A[row].reduce((a, b) => a + b, 0), 2)}</span>`;
+  }
+  roll();
+  [sm, ir].forEach(el => el.addEventListener('input', draw));
+  $('tm-new').addEventListener('click', () => { seed += 5; roll(); draw(); });
+  Fig.onRedraw(cv, draw);
+})();
+</script>

@@ -1,7 +1,7 @@
 [project]
 name = "nabla"
 version = "0.1.0"
-description = "Add your description here"
+description = "A small reverse-mode automatic differentiation library built on NumPy, with PyTorch-style layers and optional GPU support via CuPy."
 readme = "README.md"
 authors = [
     { name = "Max", email = "maxmueller1611@gmail.com" }
@@ -32,3 +32,9 @@ build-backend = "uv_build"
 dev = [
     "pytest>=9.1.1",
 ]
+docs = [
+    "docmd",
+]
+
+[tool.uv.sources]
+docmd = { git = "https://github.com/maaaax1611/doc.md" }

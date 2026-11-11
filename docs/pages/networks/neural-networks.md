@@ -107,8 +107,6 @@ Take a layer with $n$ inputs and independent weights of variance $\sigma^2$. An 
 - **Xavier (Glorot)** assumes an activation that is roughly the identity near zero, such as tanh: $\sigma^2 = 1/n$. To keep the gradients stable on the way back as well, it averages over inputs and outputs: $\sigma^2 = 2/(n_\text{in} + n_\text{out})$.
 - **He (Kaiming)** accounts for ReLU, which sets half of the pre-activations to zero and thereby halves the mean square: $\sigma^2 = 2/n_\text{in}$.
 
-::: widget nn-02-init
-
 nabla initializes `Linear` and `Conv2D` with He by default and offers Xavier as an alternative; biases start at zero. For a convolution $n_\text{in}$ is the number of values that enter one output: `in_channels * kh * kw`.
 
 > [!abstract] Key points

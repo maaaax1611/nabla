@@ -59,7 +59,7 @@ def test_cnn_stays_float32(float32):
             self.fc = nn.Linear(4 * 4 * 4, 3)
 
         def forward(self, x):
-            x = self.bn(self.conv(x)).relu().max_pool2d(2)
+            x = self.bn(self.conv(x)).relu().max_pool2d(2) + self.bn(self.conv(x)).avg_pool2d(2)
             return self.fc(x.reshape((x.shape[0], -1)))
 
     model = Net()

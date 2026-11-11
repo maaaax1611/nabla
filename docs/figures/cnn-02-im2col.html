@@ -1,0 +1,90 @@
+<!-- title: im2col: convolution as one matrix product
+     lib: fig, cnn
+     height: 640 -->
+<figure class="fig">
+  <canvas id="ci-cv" class="c-cnn-sq" role="img" aria-label="A four by four input, a three by three kernel written as a column of nine weights, and the im2col matrix with one column per kernel position. Each column holds the nine input values under the kernel; multiplying the weight column with each column gives one output value."></canvas>
+  <div class="ctrls">
+    <button class="btn" type="button" id="ci-step">Step</button>
+    <button class="btn" type="button" id="ci-play">Pause</button>
+    <button class="btn" type="button" id="ci-new">New numbers</button>
+  </div>
+  <div class="readout" id="ci-read"></div>
+  <figcaption><b>Fig.</b> A 3×3 kernel on a 4×4 input fits at four positions. im2col copies the nine values under each position into one column. The whole convolution is then a single product of the flattened kernel with this matrix, followed by a reshape. With \(C\) input channels each column has \(9C\) rows, with \(O\) kernels the weights become an \(O \times 9C\) matrix, and every further image in the batch adds four more columns.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('ci-cv'), read = $('ci-read'), bPlay = $('ci-play');
+  let X, W, k = 0, t = 1, hold = 0, playing = !Fig.reduceMotion, seed = 11;
+  function roll() { const r = CNN.ints(seed); X = Array.from({ length: 4 }, () => Array.from({ length: 4 }, () => r(0, 5))); W = Array.from({ length: 9 }, () => r(-1, 1)); }
+  const col = (n, q) => X[Math.floor(n / 2) + Math.floor(q / 3)][(n % 2) + (q % 3)];        // value q of the patch for output n
+  const out = n => { let s = 0; for (let q = 0; q < 9; q++) s += W[q] * col(n, q); return s; };
+
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), fg = Fig.token('--fg'), muted = Fig.token('--muted'), rule = Fig.token('--rule'), surface = Fig.token('--surface');
+    const narrow = w < 520, top = 26;
+    const cs = narrow ? Math.min((w - 8) / 9.6, (h - top - 10) / 17.4) : Math.min((w - 8) / 15.2, (h - top - 6) / 11.2);
+    // wide: input | w col | cols | 2×2 output.  narrow: input and 2×2 output on top, w col and cols below
+    const xc = narrow ? 4 + 1.6 * cs : 4 + 5.6 * cs, yc = narrow ? top + 6.2 * cs : top;
+    const xw = xc - 1.4 * cs;
+    const xi = narrow ? 4 : 4, yi = narrow ? top : top + 2.5 * cs;
+    const xr = narrow ? 4 + 5.4 * cs : xc + 5.6 * cs, yr = narrow ? top + 1 * cs : top + 3.5 * cs;
+    const yo = yc + 9.9 * cs;
+    const done = n => n < k || (n === k && t >= 1);
+    const active = Math.min(k, 3), all = k >= 4;
+
+    CNN.label(ctx, 'input x (4×4)', xi, yi - 6);
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) CNN.cell(ctx, xi + j * cs, yi + i * cs, cs, { fill: surface, stroke: rule, text: String(X[i][j]) });
+    if (!all) {
+      const c = CNN.tint(active), pi = Math.floor(active / 2), pj = active % 2;
+      ctx.fillStyle = Fig.rgba(c, 0.14); ctx.fillRect(xi + pj * cs, yi + pi * cs, 3 * cs, 3 * cs);
+      CNN.outline(ctx, xi + pj * cs, yi + pi * cs, 3 * cs, 3 * cs, c, 2.4);
+    }
+
+    CNN.label(ctx, 'w', xw + cs / 2, yc - 6, 'center');
+    for (let q = 0; q < 9; q++) CNN.cell(ctx, xw, yc + q * cs, cs, { fill: CNN.diverge(W[q], 1.6), stroke: rule, text: CNN.fmt(W[q]) });
+    CNN.label(ctx, 'cols (9×4)', xc, yc - 6);
+    for (let n = 0; n < 4; n++) {
+      const c = CNN.tint(n), x = xc + n * cs;
+      ctx.fillStyle = Fig.rgba(c, done(n) || (n === k && !all) ? 0.13 : 0.04); ctx.fillRect(x + 1, yc, cs - 2, 9 * cs);
+      for (let q = 0; q < 9; q++) CNN.cell(ctx, x, yc + q * cs, cs, done(n) ? { stroke: rule, text: String(col(n, q)) } : { stroke: rule, dash: [2, 3] });
+      if (n === k && !all) CNN.outline(ctx, x + 1, yc + 1, cs - 2, 9 * cs - 2, c, 2.4);
+    }
+    // values of the active patch travelling into their column
+    if (!all && t < 1) {
+      const pi = Math.floor(k / 2), pj = k % 2, e = Fig.ease(Math.min(1, t / 0.75));
+      for (let q = 0; q < 9; q++) {
+        const sx = xi + (pj + q % 3) * cs, sy = yi + (pi + Math.floor(q / 3)) * cs;
+        CNN.cell(ctx, Fig.lerp(sx, xc + k * cs, e), Fig.lerp(sy, yc + q * cs, e), cs, { fill: Fig.rgba(CNN.tint(k), 0.25), stroke: CNN.tint(k), text: String(col(k, q)) });
+      }
+    }
+
+    CNN.label(ctx, 'wᵀ · cols', xc, yo - 6);
+    for (let n = 0; n < 4; n++) CNN.cell(ctx, xc + n * cs, yo, cs, done(n) ? { fill: CNN.diverge(out(n), 8), stroke: CNN.tint(n), width: 1.6, text: CNN.fmt(out(n)) } : { stroke: rule, dash: [2, 3] });
+    CNN.label(ctx, 'reshape (2×2)', xr, yr - 6);
+    for (let n = 0; n < 4; n++) {
+      const x = xr + (n % 2) * cs, y = yr + Math.floor(n / 2) * cs;
+      CNN.cell(ctx, x, y, cs, done(n) ? { fill: CNN.diverge(out(n), 8), stroke: CNN.tint(n), width: 1.6, text: CNN.fmt(out(n)) } : { stroke: rule, dash: [2, 3] });
+    }
+
+    if (all) read.innerHTML = `<span class="k">W_flat (1×9) · cols (9×4) = </span>(1×4)<span class="k">  → reshape → </span>(2×2)\n<span class="k">one matrix product instead of four separate sums</span>`;
+    else {
+      const terms = []; for (let q = 0; q < 9; q++) if (W[q] !== 0) terms.push(`${CNN.fmt(W[q])}·${col(k, q)}`);
+      read.innerHTML = `<span class="k">column ${k} = patch at row ${Math.floor(k / 2)}, column ${k % 2}</span>\n<span class="k">w · column = </span>${terms.join(' + ').replace(/\+ −/g, '− ') || '0'} = <span class="hl">${CNN.fmt(out(k))}</span>`;
+    }
+    bPlay.textContent = playing ? 'Pause' : 'Play';
+  }
+  function advance() { k = k >= 4 ? 0 : k + 1; t = Fig.reduceMotion || k === 0 || k === 4 ? 1 : 0; hold = 0; }
+  roll();
+  Fig.loop(cv, dt => {
+    if (t < 1) { t = Math.min(1, t + dt / 0.9); draw(); return; }
+    if (!playing) return;
+    hold += dt;
+    if (hold > (k === 4 ? 2.6 : 0.9)) { advance(); draw(); }
+  });
+  $('ci-step').addEventListener('click', () => { playing = false; advance(); draw(); });
+  bPlay.addEventListener('click', () => { playing = !playing; hold = 0; draw(); });
+  $('ci-new').addEventListener('click', () => { seed += 7; roll(); k = 0; t = 1; draw(); });
+  Fig.onRedraw(cv, draw);
+})();
+</script>

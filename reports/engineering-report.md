@@ -14,6 +14,7 @@ this file records how it got there.
 | 6 | GPU | four device mismatches on the first real GPU run | CPU arrays created inside ops and modules |
 | 7 | Memory | multi-second stalls per training step on GPU | two reference cycles kept every step's graph alive |
 | 8 | dtype | float32 models silently computed in float64 | arrays created without an explicit dtype |
+| 9 | BatchNorm2D | `AttributeError` in training mode under `no_grad()` | running statistics read from the graph node, which `no_grad` does not create |
 
 ## 1. Broadcasting: `unbroadcast` missed stretched axes
 
@@ -279,7 +280,7 @@ objects for the cyclic collector to find at all.
 `set_default_dtype(np.float32)` creates float32 parameters, but NumPy
 promotes mixed operands to the wider type, so one stray float64 array in
 the forward pass upgrades everything downstream. Nothing fails; training
-is only slower. Three places created arrays without saying which dtype
+is only slower. Four places created arrays without saying which dtype
 they should have:
 
 1. **Attention scale.** `1 / sqrt(d_k)` was wrapped as a zero-dimensional
@@ -291,8 +292,19 @@ they should have:
 3. **Embedding gradient.** `Embedding.backward` allocated its accumulator
    with `xp.zeros(shape)`, so the gradient of the table came back as
    float64 although the forward pass was clean.
+4. **Average-pooling gradient.** The same pattern in `AvgPool2D.backward`.
 
 [`tests/test_dtype.py`](https://github.com/maaaax1611/nabla/blob/main/tests/test_dtype.py)
 builds a CNN, a text Transformer and a Vision Transformer under float32
 and asserts that loss, parameters and gradients are still float32 after a
 backward pass and an optimizer step.
+
+## 9. BatchNorm2D under `no_grad()`
+
+`BatchNorm2D` updates its running statistics in training mode. It read the
+batch mean and variance from the `Function` instance behind its output,
+`out._ctx`. Since `no_grad()` was introduced, `Function.apply` no longer
+attaches `_ctx` when no gradient can flow, so a forward pass in training
+mode inside `no_grad()` raised `AttributeError: 'NoneType' object has no
+attribute 'batch_mean'`. The layer now computes the two statistics from
+the input itself; a test covers the case.

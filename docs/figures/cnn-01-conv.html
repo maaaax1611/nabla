@@ -1,0 +1,108 @@
+<!-- title: A kernel sliding over an image
+     lib: fig, cnn
+     height: 560 -->
+<figure class="fig">
+  <canvas id="cc-cv" class="c-cnn-conv" role="img" aria-label="A seven by seven input image of a square outline, a three by three kernel and the output map. The kernel moves over the input one position at a time, and each output value is the sum of the products under the kernel."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="cc-k">Kernel</label></div>
+      <select id="cc-k" autocomplete="off"><option value="v">vertical edges</option><option value="h">horizontal edges</option><option value="b">blur</option><option value="s">sharpen</option></select></div>
+    <div class="ctrl"><div class="lab"><label for="cc-p">Padding</label></div>
+      <select id="cc-p" autocomplete="off"><option value="0">0</option><option value="1">1</option></select></div>
+    <div class="ctrl"><div class="lab"><label for="cc-s">Stride</label></div>
+      <select id="cc-s" autocomplete="off"><option value="1">1</option><option value="2">2</option></select></div>
+    <button class="btn" type="button" id="cc-step">Step</button>
+    <button class="btn" type="button" id="cc-play">Pause</button>
+  </div>
+  <div class="readout" id="cc-read"></div>
+  <figcaption><b>Fig.</b> The kernel is placed on the input, the products of overlapping values are summed, and the sum becomes one output value; then the kernel moves on by the stride. The same nine weights are used at every position. Padding adds a border of zeros, so the kernel can also be centred on the edge pixels. Blue output values are positive, red ones negative.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('cc-cv'), sk = $('cc-k'), sp = $('cc-p'), ss = $('cc-s'), read = $('cc-read'), bPlay = $('cc-play');
+  const IMG = [
+    [0, 0, 0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 1, 0, 0],
+    [0, 1, 0, 0, 1, 0, 0],
+    [0, 1, 0, 0, 1, 0, 0],
+    [0, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0],
+  ];
+  const B = 1 / 9;
+  const KERNELS = {
+    v: [[1, 0, -1], [1, 0, -1], [1, 0, -1]],
+    h: [[1, 1, 1], [0, 0, 0], [-1, -1, -1]],
+    b: [[B, B, B], [B, B, B], [B, B, B]],
+    s: [[0, -1, 0], [-1, 5, -1], [0, -1, 0]],
+  };
+  let k = 0, t = 1, hold = 0, playing = !Fig.reduceMotion;
+
+  function setup() {
+    const p = +sp.value, s = +ss.value, P = 7 + 2 * p, O = Math.floor((7 + 2 * p - 3) / s) + 1, K = KERNELS[sk.value];
+    const X = Array.from({ length: P }, (_, i) => Array.from({ length: P }, (_, j) => (i < p || j < p || i >= p + 7 || j >= p + 7) ? null : IMG[i - p][j - p]));
+    const Y = Array.from({ length: O }, (_, i) => Array.from({ length: O }, (_, j) => {
+      let sum = 0; for (let u = 0; u < 3; u++) for (let v = 0; v < 3; v++) sum += K[u][v] * (X[i * s + u][j * s + v] ?? 0); return sum; }));
+    return { p, s, P, O, K, X, Y, max: Math.max(1e-9, ...Y.flat().map(Math.abs)) };
+  }
+
+  function draw() {
+    const g = setup(), { ctx, w, h } = Fig.fit(cv), fg = Fig.token('--fg'), muted = Fig.token('--muted'), rule = Fig.token('--rule');
+    const accent = Fig.token('--accent'), soft = Fig.token('--accent-soft'), surface = Fig.token('--surface'), bg = Fig.token('--bg');
+    const narrow = w < 520, top = 26;
+    const cs = narrow ? Math.min((w - 8) / (g.P + 4.4), (h - top - 30) / (g.P + g.O + 1.4)) : Math.min((w - 8) / (g.P + 3 + g.O + 3), (h - top - 4) / g.P);
+    const xi = narrow ? 4 : (w - cs * (g.P + 3 + g.O + 2.4)) / 2, yi = top;
+    const xk = xi + (g.P + 1.2) * cs, yk = yi + (g.P - 3) * cs / 2;
+    const xo = narrow ? xi + (g.P - g.O) * cs / 2 : xk + 4.2 * cs, yo = narrow ? yi + (g.P + 1.4) * cs + 8 : yi + (g.P - g.O) * cs / 2;
+    const total = g.O * g.O, kk = Math.min(k, total - 1), ci = Math.floor(kk / g.O), cj = kk % g.O;
+    const shown = n => n < k || (n === k && t >= 1);
+
+    CNN.label(ctx, `input (${g.P}×${g.P}${g.p ? ', padded' : ''})`, xi, yi - 6);
+    for (let i = 0; i < g.P; i++) for (let j = 0; j < g.P; j++) {
+      const v = g.X[i][j];
+      CNN.cell(ctx, xi + j * cs, yi + i * cs, cs, v === null
+        ? { fill: bg, stroke: rule, dash: [3, 3], text: '0', color: muted }
+        : { fill: v ? soft : surface, stroke: rule, text: String(v), color: v ? fg : muted });
+    }
+    // the window slides from the previous output position to the current one
+    const pk = Math.max(0, kk - 1), e = k > 0 && t < 1 ? Fig.ease(t) : 1;
+    const px = xi + Fig.lerp((pk % g.O) * g.s, cj * g.s, e) * cs, py = yi + Fig.lerp(Math.floor(pk / g.O) * g.s, ci * g.s, e) * cs;
+    ctx.fillStyle = Fig.rgba(accent, 0.12); ctx.fillRect(px, py, 3 * cs, 3 * cs);
+    CNN.outline(ctx, px, py, 3 * cs, 3 * cs, accent, 2.4);
+
+    CNN.label(ctx, 'kernel', xk, yk - 6);
+    for (let u = 0; u < 3; u++) for (let v = 0; v < 3; v++) {
+      const kv = g.K[u][v];
+      CNN.cell(ctx, xk + v * cs, yk + u * cs, cs, { fill: CNN.diverge(kv, Math.max(...g.K.flat().map(Math.abs))), stroke: rule, text: sk.value === 'b' ? '⅑' : CNN.fmt(kv), color: fg });
+    }
+
+    CNN.label(ctx, `output (${g.O}×${g.O})`, xo, yo - 6);
+    for (let i = 0; i < g.O; i++) for (let j = 0; j < g.O; j++) {
+      const n = i * g.O + j, v = g.Y[i][j], on = shown(n);
+      CNN.cell(ctx, xo + j * cs, yo + i * cs, cs, on ? { fill: CNN.diverge(v, g.max), stroke: rule, text: CNN.num(v) } : { stroke: rule, dash: [2, 3] });
+    }
+    CNN.outline(ctx, xo + cj * cs + 1, yo + ci * cs + 1, cs - 2, cs - 2, accent, 2.4);
+
+    const terms = [];
+    for (let u = 0; u < 3; u++) for (let v = 0; v < 3; v++) { const kv = g.K[u][v], xv = g.X[ci * g.s + u][cj * g.s + v] ?? 0; if (kv !== 0 && xv !== 0) terms.push(sk.value === 'b' ? '⅑' : CNN.fmt(kv)); }
+    const sum = terms.length === 0 ? '0' : terms.join(' + ').replace(/\+ −/g, '− ') + (terms.length > 1 ? ' = ' : '');
+    read.innerHTML = `<span class="k">output size  </span>⌊(7 + 2·${g.p} − 3) / ${g.s}⌋ + 1 = ${g.O}\n` +
+      `<span class="k">out[${ci}, ${cj}] = Σ w·x = </span>${sum}${terms.length > 1 ? `<span class="hl">${CNN.num(g.Y[ci][cj])}</span>` : ''}  <span class="k">(the weights that lie on a 1)</span>`;
+    bPlay.textContent = playing ? 'Pause' : 'Play';
+  }
+  function advance() { const g = setup(); k = k + 1 >= g.O * g.O ? 0 : k + 1; t = Fig.reduceMotion || k === 0 ? 1 : 0; hold = 0; }
+  const reset = () => { k = 0; t = 1; hold = 0; draw(); };
+
+  Fig.loop(cv, dt => {
+    if (t < 1) { t = Math.min(1, t + dt / 0.35); draw(); return; }
+    if (!playing) return;
+    hold += dt; const g = setup();
+    if (hold > (k === g.O * g.O - 1 ? 2 : 0.3)) { advance(); draw(); }
+  });
+  $('cc-step').addEventListener('click', () => { playing = false; advance(); draw(); });
+  bPlay.addEventListener('click', () => { playing = !playing; hold = 0; draw(); });
+  sk.addEventListener('input', draw);
+  [sp, ss].forEach(el => el.addEventListener('input', reset));
+  Fig.onRedraw(cv, draw);
+})();
+</script>

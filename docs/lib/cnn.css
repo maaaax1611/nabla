@@ -1,0 +1,7 @@
+/* Convolutional networks page */
+.c-cnn, .c-cnn-conv { aspect-ratio: 2.3 / 1; }
+.c-cnn-sq { aspect-ratio: 1.45 / 1; }
+@media (max-width: 560px) { .c-cnn { aspect-ratio: 1.15 / 1; } .c-cnn-conv { aspect-ratio: 0.75 / 1; } .c-cnn-sq { aspect-ratio: 0.7 / 1; } }
+.readout { white-space: pre-wrap; }
+.readout .hl { color: var(--accent); }
+.readout .gr { color: var(--hole); }

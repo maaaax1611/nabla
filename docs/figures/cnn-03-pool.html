@@ -1,0 +1,71 @@
+<!-- title: Pooling forward and backward
+     lib: fig, cnn
+     height: 520 -->
+<figure class="fig">
+  <canvas id="cp-cv" class="c-cnn" role="img" aria-label="A four by four input split into four two by two windows and the two by two output. Forward, each window is reduced to its maximum or mean. Backward, max pooling sends each gradient to the position of the maximum, average pooling spreads it evenly over the window."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="cp-m">Pooling</label></div>
+      <select id="cp-m" autocomplete="off"><option value="max">max</option><option value="avg">average</option></select></div>
+    <div class="ctrl"><div class="lab"><label for="cp-d">Direction</label></div>
+      <select id="cp-d" autocomplete="off"><option value="f">forward</option><option value="b">backward</option></select></div>
+    <button class="btn" type="button" id="cp-replay">Replay</button>
+    <button class="btn" type="button" id="cp-new">New numbers</button>
+  </div>
+  <figcaption><b>Fig.</b> 2×2 pooling with stride 2. Forward, each coloured window becomes one output value. Backward, max pooling passes each gradient on to the single position that held the maximum and gives the other three a zero; average pooling hands a quarter of it to every position in the window.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('cp-cv'), sm = $('cp-m'), sd = $('cp-d');
+  let X, G, t = Fig.reduceMotion ? 1 : 0, hold = 0, seed = 5;
+  function roll() {
+    const r = CNN.ints(seed);
+    X = Array.from({ length: 4 }, () => Array.from({ length: 4 }, () => r(0, 9)));
+    G = Array.from({ length: 4 }, () => { let v = 0; while (v === 0) v = r(-3, 3); return v; });
+  }
+  const cells = n => [0, 1, 2, 3].map(q => [2 * Math.floor(n / 2) + Math.floor(q / 2), 2 * (n % 2) + (q % 2)]);
+  const argmax = n => cells(n).reduce((b, c) => X[c[0]][c[1]] > X[b[0]][b[1]] ? c : b);
+  const fwd = n => sm.value === 'max' ? X[argmax(n)[0]][argmax(n)[1]] : cells(n).reduce((s, [i, j]) => s + X[i][j], 0) / 4;
+  const gradIn = (i, j) => { const n = 2 * Math.floor(i / 2) + Math.floor(j / 2);
+    if (sm.value === 'avg') return G[n] / 4; const [ai, aj] = argmax(n); return ai === i && aj === j ? G[n] : 0; };
+  const progress = n => Fig.clamp((t - n * 0.2) / 0.36, 0, 1);
+
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), fg = Fig.token('--fg'), muted = Fig.token('--muted'), rule = Fig.token('--rule'), surface = Fig.token('--surface');
+    const back = sd.value === 'b', isMax = sm.value === 'max', top = 26;
+    const cs = Math.min((w - 8) / 8.6, (h - top - 8) / 4.2), xi = (w - 8.4 * cs) / 2, yi = top + (h - top - 4 * cs) / 2 - 6, xo = xi + 6.4 * cs, yo = yi + cs;
+    const dec = isMax ? 0 : 2;
+    CNN.label(ctx, back ? '∂L/∂x (4×4)' : 'x (4×4)', xi, yi - 6);
+    CNN.label(ctx, back ? '∂L/∂y (2×2)' : (isMax ? 'y = maxpool(x)' : 'y = avgpool(x)'), xo, yo - 6);
+    for (let n = 0; n < 4; n++) { const c = CNN.tint(n), [i0, j0] = cells(n)[0]; ctx.fillStyle = Fig.rgba(c, 0.1); ctx.fillRect(xi + j0 * cs, yi + i0 * cs, 2 * cs, 2 * cs); CNN.outline(ctx, xi + j0 * cs + 1, yi + i0 * cs + 1, 2 * cs - 2, 2 * cs - 2, c, 1.6); }
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+      const n = 2 * Math.floor(i / 2) + Math.floor(j / 2), [ai, aj] = argmax(n), isArg = isMax && ai === i && aj === j;
+      if (back) { const g = gradIn(i, j), on = progress(n) >= 1; CNN.cell(ctx, xi + j * cs, yi + i * cs, cs, { stroke: isArg ? CNN.tint(n) : null, width: 2, text: on ? CNN.fmt(g, g === 0 ? 0 : dec) : '', color: on && g !== 0 ? fg : muted }); }
+      else CNN.cell(ctx, xi + j * cs, yi + i * cs, cs, { stroke: isArg ? CNN.tint(n) : null, width: 2.4, text: String(X[i][j]), color: isMax && !isArg ? muted : fg });
+    }
+    for (let n = 0; n < 4; n++) {
+      const x = xo + (n % 2) * cs, y = yo + Math.floor(n / 2) * cs, on = back || progress(n) >= 1;
+      CNN.cell(ctx, x, y, cs, on ? { fill: Fig.rgba(CNN.tint(n), 0.16), stroke: CNN.tint(n), width: 1.6, text: back ? CNN.fmt(G[n]) : CNN.fmt(fwd(n), dec) } : { stroke: rule, dash: [2, 3] });
+    }
+    for (let n = 0; n < 4; n++) {                                      // values in flight
+      const p = progress(n); if (p <= 0 || p >= 1) continue;
+      const e = Fig.ease(p), ox = xo + (n % 2) * cs, oy = yo + Math.floor(n / 2) * cs, src = isMax ? [argmax(n)] : cells(n);
+      for (const [i, j] of src) {
+        const ix = xi + j * cs, iy = yi + i * cs;
+        const text = back ? CNN.fmt(isMax ? G[n] : G[n] / 4, dec) : String(X[i][j]);
+        CNN.cell(ctx, back ? Fig.lerp(ox, ix, e) : Fig.lerp(ix, ox, e), back ? Fig.lerp(oy, iy, e) : Fig.lerp(iy, oy, e), cs, { fill: Fig.rgba(CNN.tint(n), 0.3), stroke: CNN.tint(n), text });
+      }
+    }
+  }
+  const restart = () => { t = Fig.reduceMotion ? 1 : 0; hold = 0; draw(); };
+  roll();
+  Fig.loop(cv, dt => {
+    if (t < 1) { t = Math.min(1, t + dt / 2.6); draw(); return; }
+    hold += dt; if (hold > 2.4) restart();
+  });
+  [sm, sd].forEach(el => el.addEventListener('input', restart));
+  $('cp-replay').addEventListener('click', restart);
+  $('cp-new').addEventListener('click', () => { seed += 3; roll(); restart(); });
+  Fig.onRedraw(cv, draw);
+})();
+</script>

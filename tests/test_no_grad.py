@@ -56,3 +56,14 @@ def test_training_still_works_after_an_eval_pass():
         layer(x)
     layer(x).sum().backward()
     assert layer.weight.grad is not None
+
+
+def test_batchnorm_in_training_mode_under_no_grad_updates_running_stats():
+    # the layer used to read the batch statistics from out._ctx, which
+    # does not exist when no graph is recorded
+    bn = nn.BatchNorm2D(3)
+    x = Tensor(np.random.default_rng(0).normal(2.0, 1.0, (4, 3, 5, 5)))
+    with nabla.no_grad():
+        out = bn(x)
+    assert out.requires_grad is False
+    assert np.allclose(bn.running_mean, 0.1 * x.data.mean(axis=(0, 2, 3)))

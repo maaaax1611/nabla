@@ -62,7 +62,9 @@ uv run --group docs docmd serve docs     # http://127.0.0.1:8000
   backward pass, broadcasting, gradient checks
 - [Neural networks](docs/pages/networks/neural-networks.md): modules, linear
   layers, activations, initialization, softmax cross-entropy, XOR
-- Convolutional networks, Transformers, optimizers: planned
+- [Convolutional networks](docs/pages/networks/cnn.md): convolution, im2col,
+  pooling, batch normalization, a CNN for MNIST
+- Transformers, optimizers: planned
 
 Bugs that came up along the way and how they were fixed are collected in the
 [engineering report](reports/engineering-report.md).

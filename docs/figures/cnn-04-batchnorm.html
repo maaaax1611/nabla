@@ -1,0 +1,83 @@
+<!-- title: Batch normalization in training and evaluation
+     lib: fig, cnn
+     height: 640 -->
+<figure class="fig">
+  <canvas id="cb-cv" class="c-cnn" role="img" aria-label="Two histograms of the values of one channel: left the input batch, right the output of batch normalization, each with its mean and one standard deviation marked."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="cb-mu">Input mean</label><output id="cb-mu-o"></output></div><input id="cb-mu" type="range" min="-3" max="3" step="0.1" value="2" autocomplete="off"></div>
+    <div class="ctrl"><div class="lab"><label for="cb-sd">Input std</label><output id="cb-sd-o"></output></div><input id="cb-sd" type="range" min="0.3" max="2.5" step="0.05" value="1.5" autocomplete="off"></div>
+    <div class="ctrl"><div class="lab"><label for="cb-g">γ</label><output id="cb-g-o"></output></div><input id="cb-g" type="range" min="0.2" max="2" step="0.05" value="1" autocomplete="off"></div>
+    <div class="ctrl"><div class="lab"><label for="cb-b">β</label><output id="cb-b-o"></output></div><input id="cb-b" type="range" min="-2" max="2" step="0.1" value="0" autocomplete="off"></div>
+  </div>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="cb-mode">Mode</label></div>
+      <select id="cb-mode" autocomplete="off"><option value="train">training: batch statistics</option><option value="eval">evaluation: running statistics</option></select></div>
+    <button class="btn" type="button" id="cb-play">Train</button>
+    <button class="btn" type="button" id="cb-reset">Reset running stats</button>
+  </div>
+  <div class="readout" id="cb-read"></div>
+  <figcaption><b>Fig.</b> One channel, 256 values from a batch. In training mode the output always has mean \(\beta\) and standard deviation \(\gamma\), whatever the input looks like. In evaluation mode the layer uses the running statistics instead, which start at mean 0 and variance 1. Press <i>Train</i>: every step draws a new batch and moves the running statistics 10 % of the way towards its statistics. Only after enough steps does the evaluation output match the training output.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('cb-cv'), imu = $('cb-mu'), isd = $('cb-sd'), ig = $('cb-g'), ib = $('cb-b'), mode = $('cb-mode'), bPlay = $('cb-play'), read = $('cb-read');
+  const N = 256, M = 0.1, EPS = 1e-5, LO = -6, HI = 6, BINS = 48;
+  let seed = 1, Z = [], runMean = 0, runVar = 1, steps = 0, acc = 0;
+  function batch() { let s = seed++ * 7919; const u = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+    Z = Array.from({ length: N }, () => { let a = 0; while (a === 0) a = u(); return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * u()); }); }
+  const stats = v => { const m = v.reduce((a, b) => a + b, 0) / v.length; return [m, v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length]; };
+  const input = () => Z.map(z => +imu.value + +isd.value * z);
+  function trainStep() {
+    batch(); const [m, v] = stats(input());
+    runMean = (1 - M) * runMean + M * m; runVar = (1 - M) * runVar + M * v; steps++;
+  }
+
+  function hist(ctx, box, vals, color, title) {
+    const { px, py } = { px: v => box.x + (v - LO) / (HI - LO) * box.w, py: c => box.y + box.h - c / 34 * box.h };
+    const grid = Fig.token('--grid'), muted = Fig.token('--muted'), fg = Fig.token('--fg');
+    ctx.font = `500 11px ${Fig.MONO}`; ctx.lineWidth = 1;
+    for (let v = -6; v <= 6; v += 2) {
+      ctx.strokeStyle = grid; ctx.beginPath(); ctx.moveTo(px(v), box.y); ctx.lineTo(px(v), box.y + box.h); ctx.stroke();
+      ctx.fillStyle = muted; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(CNN.fmt(v), px(v), box.y + box.h + 5);
+    }
+    CNN.label(ctx, title, box.x, box.y - 6);
+    const counts = new Array(BINS).fill(0), bw = (HI - LO) / BINS;
+    for (const v of vals) { const b = Math.floor((v - LO) / bw); if (b >= 0 && b < BINS) counts[b]++; }
+    ctx.fillStyle = Fig.rgba(color, 0.55);
+    counts.forEach((c, b) => { if (c) ctx.fillRect(px(LO + b * bw) + 0.5, py(Math.min(c, 34)), box.w / BINS - 1, py(0) - py(Math.min(c, 34))); });
+    ctx.strokeStyle = muted; ctx.beginPath(); ctx.moveTo(box.x, py(0)); ctx.lineTo(box.x + box.w, py(0)); ctx.stroke();
+    const [m, v] = stats(vals), sd = Math.sqrt(v);
+    ctx.strokeStyle = fg; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(px(Fig.clamp(m, LO, HI)), box.y + 4); ctx.lineTo(px(Fig.clamp(m, LO, HI)), py(0)); ctx.stroke();
+    ctx.setLineDash([4, 4]); ctx.lineWidth = 1.2;
+    for (const x of [m - sd, m + sd]) if (x > LO && x < HI) { ctx.beginPath(); ctx.moveTo(px(x), box.y + 14); ctx.lineTo(px(x), py(0)); ctx.stroke(); }
+    ctx.setLineDash([]);
+    return [m, sd];
+  }
+
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), accent = Fig.token('--accent'), muted = Fig.token('--muted');
+    const x = input(), [bm, bv] = stats(x), train = mode.value === 'train';
+    const mean = train ? bm : runMean, va = train ? bv : runVar, g = +ig.value, b = +ib.value;
+    const y = x.map(v => g * (v - mean) / Math.sqrt(va + EPS) + b);
+    const narrow = w < 520, top = 24;
+    const boxes = narrow
+      ? [{ x: 8, y: top, w: w - 16, h: (h - 2 * top - 40) / 2 }, { x: 8, y: top + (h - 2 * top - 40) / 2 + top + 22, w: w - 16, h: (h - 2 * top - 40) / 2 }]
+      : [{ x: 8, y: top, w: (w - 56) / 2, h: h - top - 24 }, { x: 8 + (w - 56) / 2 + 40, y: top, w: (w - 56) / 2, h: h - top - 24 }];
+    const [im, isd2] = hist(ctx, boxes[0], x, muted, 'input x');
+    const [om, osd] = hist(ctx, boxes[1], y, accent, train ? 'output y, normalized with the batch' : 'output y, normalized with running stats');
+    $('cb-mu-o').textContent = CNN.fmt(+imu.value, 1); $('cb-sd-o').textContent = CNN.fmt(+isd.value, 2);
+    $('cb-g-o').textContent = CNN.fmt(g, 2); $('cb-b-o').textContent = CNN.fmt(b, 1);
+    read.innerHTML = `<span class="k">batch     </span>mean ${CNN.fmt(bm, 2)}   var ${CNN.fmt(bv, 2)}\n` +
+      `<span class="k">running   </span>mean ${CNN.fmt(runMean, 2)}   var ${CNN.fmt(runVar, 2)}   <span class="k">after ${steps} training step${steps === 1 ? '' : 's'}</span>\n` +
+      `<span class="k">output    </span><span class="hl">mean ${CNN.fmt(om, 2)}   std ${CNN.fmt(osd, 2)}</span>`;
+    bPlay.textContent = anim.running ? 'Pause' : 'Train';
+  }
+  const anim = Fig.loop(cv, dt => { acc += dt; if (acc > 0.25) { acc = 0; trainStep(); draw(); } }, { autoplay: false });
+  batch();
+  [imu, isd, ig, ib, mode].forEach(el => el.addEventListener('input', draw));
+  bPlay.addEventListener('click', () => { anim.toggle(); draw(); });
+  $('cb-reset').addEventListener('click', () => { runMean = 0; runVar = 1; steps = 0; draw(); });
+  Fig.onRedraw(cv, draw);
+})();
+</script>

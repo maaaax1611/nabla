@@ -1,0 +1,39 @@
+<!-- title: The pre-norm Transformer block
+     height: 270 -->
+<figure class="fig">
+<div class="svgbox">
+<svg viewBox="0 0 640 190" role="img" aria-label="The residual stream runs straight from x to the output. Two branches leave it: LayerNorm then multi-head attention, added back at the first plus; LayerNorm then the feedforward network, added back at the second plus.">
+<defs><marker id="tb-ar" markerWidth="7" markerHeight="7" refX="8" refY="5" orient="auto" viewBox="0 0 10 10"><path class="d-mut" d="M0,0 L10,5 L0,10 z"></path></marker>
+<marker id="tb-ara" markerWidth="7" markerHeight="7" refX="8" refY="5" orient="auto" viewBox="0 0 10 10"><path class="d-acc" d="M0,0 L10,5 L0,10 z"></path></marker></defs>
+<g class="d-sta" stroke-width="2.4">
+  <line x1="34" y1="50" x2="295" y2="50"></line><line x1="317" y1="50" x2="563" y2="50"></line><line x1="585" y1="50" x2="618" y2="50" marker-end="url(#tb-ara)"></line>
+</g>
+<g class="d-stm" stroke-width="1.4">
+  <polyline points="60,50 60,130 78,130" marker-end="url(#tb-ar)"></polyline>
+  <line x1="168" y1="130" x2="186" y2="130" marker-end="url(#tb-ar)"></line>
+  <polyline points="282,130 306,130 306,64" marker-end="url(#tb-ar)"></polyline>
+  <polyline points="340,50 340,130 358,130" marker-end="url(#tb-ar)"></polyline>
+  <line x1="448" y1="130" x2="466" y2="130" marker-end="url(#tb-ar)"></line>
+  <polyline points="550,130 574,130 574,64" marker-end="url(#tb-ar)"></polyline>
+</g>
+<g class="d-stm" stroke-width="1.3">
+  <rect x="80" y="112" width="88" height="36" rx="5" class="d-surf"></rect><rect x="80" y="112" width="88" height="36" rx="5"></rect>
+  <rect x="188" y="112" width="94" height="36" rx="5" class="d-soft"></rect><rect x="188" y="112" width="94" height="36" rx="5"></rect>
+  <rect x="360" y="112" width="88" height="36" rx="5" class="d-surf"></rect><rect x="360" y="112" width="88" height="36" rx="5"></rect>
+  <rect x="468" y="112" width="82" height="36" rx="5" class="d-soft"></rect><rect x="468" y="112" width="82" height="36" rx="5"></rect>
+</g>
+<g class="d-sta" stroke-width="1.8"><circle cx="306" cy="50" r="11" class="d-surf"></circle><circle cx="306" cy="50" r="11"></circle><circle cx="574" cy="50" r="11" class="d-surf"></circle><circle cx="574" cy="50" r="11"></circle></g>
+<g class="d-fg" font-size="13" text-anchor="middle">
+  <text x="306" y="55" font-size="16">+</text><text x="574" y="55" font-size="16">+</text>
+  <text x="124" y="135">LayerNorm</text><text x="235" y="128">multi-head</text><text x="235" y="142">attention</text>
+  <text x="404" y="135">LayerNorm</text><text x="509" y="128">feed-</text><text x="509" y="142">forward</text>
+  <text x="20" y="55" font-size="15">x</text>
+</g>
+<g class="d-mut" font-size="12" text-anchor="middle">
+  <text x="180" y="40">residual stream</text><text x="600" y="40">out</text>
+  <text x="235" y="172">mixes positions</text><text x="509" y="172">per position</text>
+</g>
+</svg>
+</div>
+<figcaption><b>Fig.</b> One pre-norm block. Each sublayer reads a normalized copy of the residual stream and adds its result back; the stream itself is never normalized inside the block. Dropout is applied to each sublayer's output before the addition.</figcaption>
+</figure>

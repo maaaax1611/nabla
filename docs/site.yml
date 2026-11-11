@@ -17,5 +17,4 @@ categories:
     desc: From gradients to a trained model.
 
 planned:
-  - { category: networks, title: Transformers, desc: "Embeddings, attention, layer normalization and the Transformer block.", tags: [Attention, LayerNorm, ViT] }
   - { category: training, title: Optimizers and schedules, desc: "SGD, Adam, weight decay, dropout, learning-rate schedules and gradient clipping.", tags: [SGD, Adam, Dropout] }

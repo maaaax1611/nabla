@@ -1,0 +1,70 @@
+<!-- title: An image as a sequence of patches
+     lib: fig, tf
+     height: 520 -->
+<figure class="fig">
+  <canvas id="tv-cv" class="c-tf" role="img" aria-label="A 28 by 28 image of the digit 7 cut into square patches. The patches move one after the other into a row, behind a CLS token, forming the input sequence of the Transformer."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="tv-p">Patch size</label></div>
+      <select id="tv-p" autocomplete="off"><option value="4">4 × 4</option><option value="7" selected>7 × 7</option><option value="14">14 × 14</option></select></div>
+    <button class="btn" type="button" id="tv-replay">Replay</button>
+  </div>
+  <div class="readout" id="tv-read"></div>
+  <figcaption><b>Fig.</b> The image is cut into non-overlapping patches, read row by row. Each patch is flattened and projected to one token, and a learned CLS token is put in front. Smaller patches give more detail per token but a longer sequence, and the cost of attention grows with the square of the sequence length.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('tv-cv'), sp = $('tv-p'), read = $('tv-read'), S = 28;
+  // a hand-drawn 7: two thick strokes, rendered as distances to line segments
+  const SEG = [[6, 6, 21, 6], [21, 6, 12, 23], [10, 14, 18, 14]];
+  const IMG = Array.from({ length: S }, (_, y) => Array.from({ length: S }, (_, x) => {
+    let d = 1e9; for (const [ax, ay, bx, by] of SEG) { const vx = bx - ax, vy = by - ay, u = Fig.clamp(((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy), 0, 1); d = Math.min(d, Math.hypot(x - ax - u * vx, y - ay - u * vy)); }
+    return Fig.clamp(1.6 - d, 0, 1); }));
+  let t = Fig.reduceMotion ? 1 : 0, hold = 0;
+
+  function layout(w, h, n) {
+    const narrow = w < 520, img = narrow ? Math.min(w - 40, h * 0.42) : Math.min(h - 40, w * 0.36);
+    const ix = narrow ? (w - img) / 2 : 12, iy = 26;
+    const ax = narrow ? 10 : ix + img + 40, ay = narrow ? iy + img + 40 : 26, aw = w - ax - 10, ah = narrow ? h - ay - 10 : h - 36;
+    let it = 64, cols = 1, rows = 1;
+    for (; it > 8; it--) { cols = Math.max(1, Math.floor(aw / (it * 1.18))); rows = Math.ceil(n / cols); if (rows * it * (it >= 40 ? 1.4 : 1.18) <= ah) break; }
+    return { ix, iy, img, ax, ay, it, cols };
+  }
+  function patch(ctx, pi, pj, p, x, y, size) {
+    const px = size / p, fg = Fig.token('--fg'), surface = Fig.token('--surface');
+    for (let u = 0; u < p; u++) for (let v = 0; v < p; v++) { ctx.fillStyle = TF.mix(surface, fg, 0.9 * IMG[pi * p + u][pj * p + v]); ctx.fillRect(x + v * px, y + u * px, px + 0.4, px + 0.4); }
+    ctx.strokeStyle = Fig.token('--rule'); ctx.lineWidth = 1; ctx.strokeRect(x, y, size, size);
+  }
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), p = +sp.value, g = S / p, n = g * g, L = layout(w, h, n + 1), accent = Fig.token('--accent'), muted = Fig.token('--muted');
+    const vgap = L.it >= 40 ? 1.4 : 1.18, slot = k => [L.ax + (k % L.cols) * L.it * 1.18, L.ay + Math.floor(k / L.cols) * L.it * vgap];
+    const prog = k => Fig.clamp((t - k / (n + 1) * 0.7) / 0.3, 0, 1);
+    TF.label(ctx, 'image (28×28)', L.ix, L.iy - 6);
+    const ps = L.img / g;
+    for (let i = 0; i < g; i++) for (let j = 0; j < g; j++) {
+      const k = i * g + j;
+      if (prog(k + 1) >= 1) { ctx.strokeStyle = Fig.token('--rule'); ctx.setLineDash([3, 3]); ctx.strokeRect(L.ix + j * ps, L.iy + i * ps, ps, ps); ctx.setLineDash([]); }
+      else patch(ctx, i, j, p, L.ix + j * ps, L.iy + i * ps, ps);
+    }
+    TF.label(ctx, `sequence: CLS + ${n} patches`, L.ax, L.ay - 6);
+    const [cx, cy] = slot(0), cp = Fig.ease(prog(0));
+    ctx.globalAlpha = cp; TF.cell(ctx, cx, cy, L.it, { fill: Fig.token('--accent-soft'), stroke: accent, width: 1.6, text: 'CLS', size: 0.3, color: accent }); ctx.globalAlpha = 1;
+    for (let k = 0; k < n; k++) {
+      const e = Fig.ease(prog(k + 1)); if (e <= 0) continue;
+      const i = Math.floor(k / g), j = k % g, [sx, sy] = slot(k + 1);
+      const x = Fig.lerp(L.ix + j * ps, sx, e), y = Fig.lerp(L.iy + i * ps, sy, e), size = Fig.lerp(ps, L.it, e);
+      patch(ctx, i, j, p, x, y, size);
+      if (e >= 1 && L.it >= 40) { ctx.fillStyle = muted; ctx.font = `500 10px ${Fig.MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(String(k + 1), sx + L.it / 2, sy + L.it + 1); }
+    }
+    read.innerHTML = `<span class="k">patches  </span>(28 / ${p})² = ${n}   <span class="k">values per patch  </span>${p}·${p} = ${p * p}\n<span class="k">sequence length  </span><span class="hl">${n + 1}</span>   <span class="k">attention scores per head  </span>${(n + 1) ** 2}`;
+  }
+  const restart = () => { t = Fig.reduceMotion ? 1 : 0; hold = 0; draw(); };
+  Fig.loop(cv, dt => {
+    if (t < 1) { t = Math.min(1, t + dt / 3.2); draw(); return; }
+    hold += dt; if (hold > 2.8) restart();
+  });
+  sp.addEventListener('input', restart);
+  $('tv-replay').addEventListener('click', restart);
+  Fig.onRedraw(cv, draw);
+})();
+</script>

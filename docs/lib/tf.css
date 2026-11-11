@@ -1,0 +1,9 @@
+/* Transformers page */
+.c-tf { aspect-ratio: 2.3 / 1; }
+.c-tf-mat { aspect-ratio: 2.6 / 1; }
+.c-tf-sq { aspect-ratio: 1.9 / 1; }
+canvas.c-tf-drag { touch-action: none; cursor: crosshair; }
+@media (max-width: 560px) { .c-tf { aspect-ratio: 0.85 / 1; } .c-tf-mat { aspect-ratio: 1.25 / 1; } .c-tf-sq { aspect-ratio: 0.8 / 1; } }
+.readout { white-space: pre-wrap; }
+.readout .hl { color: var(--accent); }
+.readout .gr { color: var(--hole); }

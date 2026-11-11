@@ -64,7 +64,9 @@ uv run --group docs docmd serve docs     # http://127.0.0.1:8000
   layers, activations, initialization, softmax cross-entropy, XOR
 - [Convolutional networks](docs/pages/networks/cnn.md): convolution, im2col,
   pooling, batch normalization, a CNN for MNIST
-- Transformers, optimizers: planned
+- [Transformers](docs/pages/networks/transformer.md): embeddings, positional
+  encoding, attention, LayerNorm, the Transformer block, Shakespeare, ViT
+- Optimizers: planned
 
 Bugs that came up along the way and how they were fixed are collected in the
 [engineering report](reports/engineering-report.md).

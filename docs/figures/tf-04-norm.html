@@ -1,0 +1,68 @@
+<!-- title: LayerNorm and BatchNorm normalize along different axes
+     lib: fig, tf
+     height: 600 -->
+<figure class="fig">
+  <canvas id="tn-cv" class="c-tf-sq" role="img" aria-label="Two short sequences, one padded with zeros, as rows of a table with six features as columns. LayerNorm normalizes each row on its own; BatchNorm normalizes each column across all rows, padding included. The active group is outlined."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="tn-m">Normalization</label></div>
+      <select id="tn-m" autocomplete="off"><option value="ln">LayerNorm</option><option value="bn">BatchNorm</option></select></div>
+    <div class="ctrl"><div class="lab"><label for="tn-v">Show</label></div>
+      <select id="tn-v" autocomplete="off"><option value="in">input x</option><option value="out" selected>normalized x̂</option></select></div>
+    <button class="btn" type="button" id="tn-step">Step</button>
+    <button class="btn" type="button" id="tn-play">Pause</button>
+  </div>
+  <div class="readout" id="tn-read"></div>
+  <figcaption><b>Fig.</b> A batch of two sequences of four tokens with six features each; the second sequence is only two tokens long and padded with zeros. LayerNorm normalizes every token over its own features, so each row is independent of all others and padding has no effect. BatchNorm normalizes every feature over all tokens of the batch: the padding rows enter its statistics, and the result for one token changes with what else is in the batch.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('tn-cv'), sm = $('tn-m'), sv = $('tn-v'), read = $('tn-read'), bPlay = $('tn-play');
+  const ROWS = ['A₀', 'A₁', 'A₂', 'A₃', 'B₀', 'B₁', 'pad', 'pad'], PAD = [0, 0, 0, 0, 0, 0, 1, 1], D = 6, EPS = 1e-5;
+  const r = TF.rng(9), SHIFT = [2, -1, 0.5, 3, -2, 1];
+  const X = ROWS.map((_, i) => Array.from({ length: D }, (_, j) => PAD[i] ? 0 : Math.round((SHIFT[j] + 1.2 * r.g()) * 10) / 10));
+  let grp = 0, t = 1, hold = 0, playing = !Fig.reduceMotion;
+  const stats = v => { const m = v.reduce((a, b) => a + b, 0) / v.length; return [m, v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length]; };
+  function normalized() {
+    if (sm.value === 'ln') return X.map(row => { const [m, v] = stats(row); return row.map(x => (x - m) / Math.sqrt(v + EPS)); });
+    const cols = Array.from({ length: D }, (_, j) => stats(X.map(row => row[j])));
+    return X.map(row => row.map((x, j) => (x - cols[j][0]) / Math.sqrt(cols[j][1] + EPS)));
+  }
+  const groups = () => sm.value === 'ln' ? ROWS.length : D;
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), fg = Fig.token('--fg'), muted = Fig.token('--muted'), rule = Fig.token('--rule'), bg = Fig.token('--bg'), accent = Fig.token('--accent');
+    const ln = sm.value === 'ln', out = sv.value === 'out', Y = normalized(), lab = 34, top = 42;
+    const cs = Math.min((w - lab - 16) / D, (h - top - 10) / ROWS.length), x0 = (w - lab - D * cs) / 2 + lab, y0 = top;
+    const vals = out ? Y : X, vmax = Math.max(...vals.flat().map(Math.abs));
+    TF.label(ctx, out ? 'normalized x̂' : 'input x', x0, y0 - 20);
+    ctx.font = `500 11px ${Fig.MONO}`; ctx.fillStyle = muted; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    for (let j = 0; j < D; j++) ctx.fillText('f' + j, x0 + j * cs + cs / 2, y0 - 3);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = `600 12px ${Fig.DISPLAY}`;
+    ROWS.forEach((name, i) => ctx.fillText(name, x0 - 8, y0 + i * cs + cs / 2));
+    for (let i = 0; i < ROWS.length; i++) for (let j = 0; j < D; j++) {
+      const v = vals[i][j];
+      TF.cell(ctx, x0 + j * cs, y0 + i * cs, cs, PAD[i] && !out ? { fill: bg, stroke: rule, text: '0', color: muted } : { fill: TF.diverge(v, vmax), stroke: rule, text: TF.fmt(v, 1) });
+    }
+    ctx.strokeStyle = rule; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x0 - 30, y0 + 4 * cs); ctx.lineTo(x0 + D * cs, y0 + 4 * cs); ctx.stroke();
+    const g = grp % groups(), e = Fig.ease(t), pg = (g - 1 + groups()) % groups(), pos = Fig.lerp(t < 1 ? pg : g, g, e);
+    if (ln) TF.outline(ctx, x0 - 1, y0 + pos * cs, D * cs + 2, cs, accent, 2.6);
+    else TF.outline(ctx, x0 + pos * cs, y0 - 1, cs, ROWS.length * cs + 2, accent, 2.6);
+    const members = ln ? X[g] : X.map(row => row[g]), [m, v] = stats(members);
+    read.innerHTML = ln
+      ? `<span class="k">LayerNorm, token ${ROWS[g]}  </span>mean ${TF.fmt(m, 2)}   var ${TF.fmt(v, 2)}   <span class="k">over its ${D} features</span>${PAD[g] ? '\n<span class="k">a padding row is all zeros and stays zero</span>' : ''}`
+      : `<span class="k">BatchNorm, feature f${g}  </span>mean ${TF.fmt(m, 2)}   var ${TF.fmt(v, 2)}   <span class="k">over all 8 rows, 2 of them padding</span>\n<span class="k">without the padding rows  </span>mean ${TF.fmt(stats(members.slice(0, 6))[0], 2)}   var ${TF.fmt(stats(members.slice(0, 6))[1], 2)}`;
+    bPlay.textContent = playing ? 'Pause' : 'Play';
+  }
+  function advance() { grp = (grp + 1) % groups(); t = Fig.reduceMotion ? 1 : 0; hold = 0; }
+  Fig.loop(cv, dt => {
+    if (t < 1) { t = Math.min(1, t + dt / 0.3); draw(); return; }
+    if (!playing) return;
+    hold += dt; if (hold > 1.2) { advance(); draw(); }
+  });
+  $('tn-step').addEventListener('click', () => { playing = false; advance(); draw(); });
+  bPlay.addEventListener('click', () => { playing = !playing; hold = 0; draw(); });
+  sm.addEventListener('input', () => { grp = 0; t = 1; draw(); });
+  sv.addEventListener('input', draw);
+  Fig.onRedraw(cv, draw);
+})();
+</script>

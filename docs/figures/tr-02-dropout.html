@@ -1,0 +1,60 @@
+<!-- title: Dropout
+     lib: fig, tr
+     height: 520 -->
+<figure class="fig">
+  <canvas id="td-cv" class="c-tr-wide" role="img" aria-label="A small network with four inputs, two hidden layers of seven units and two outputs. In training mode a random set of hidden units is switched off at every step, together with their connections, and the remaining ones are scaled up. In evaluation mode all units are active."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="td-p">Drop probability p</label><output id="td-p-o"></output></div><input id="td-p" type="range" min="0" max="0.8" step="0.05" value="0.5" autocomplete="off"></div>
+    <div class="ctrl"><div class="lab"><label for="td-m">Mode</label></div>
+      <select id="td-m" autocomplete="off"><option value="train">training</option><option value="eval">evaluation</option></select></div>
+    <button class="btn" type="button" id="td-play">Pause</button>
+  </div>
+  <div class="readout" id="td-read"></div>
+  <figcaption><b>Fig.</b> During training every hidden unit is switched off with probability \(p\), with a new random choice at every step; the survivors are multiplied by \(1/(1-p)\), so the expected input to the next layer stays the same. No unit can rely on a particular partner being present. In evaluation mode dropout does nothing.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('td-cv'), ip = $('td-p'), sm = $('td-m'), bPlay = $('td-play'), read = $('td-read');
+  const LAYERS = [4, 7, 7, 2], DROP = [false, true, true, false];
+  let seed = 3, masks = [], acc = 0, playing = !Fig.reduceMotion;
+  function sample() {
+    const r = TR.rng(seed++ * 977 + 1), p = +ip.value;
+    masks = LAYERS.map((n, l) => Array.from({ length: n }, () => !(DROP[l] && sm.value === 'train' && r.u() < p)));
+  }
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), fg = Fig.token('--fg'), muted = Fig.token('--muted'), rule = Fig.token('--rule'), accent = Fig.token('--accent'), surface = Fig.token('--surface'), soft = Fig.token('--accent-soft'), hole = Fig.token('--hole');
+    const train = sm.value === 'train', p = +ip.value, scale = 1 / (1 - p);
+    const xs = LAYERS.map((_, l) => 40 + l * (w - 80) / (LAYERS.length - 1));
+    const pos = (l, i) => [xs[l], 22 + (h - 44) * (i + 0.5) / Math.max(...LAYERS) + (Math.max(...LAYERS) - LAYERS[l]) * (h - 44) / Math.max(...LAYERS) / 2];
+    const r = Math.min(15, (h - 44) / Math.max(...LAYERS) * 0.36);
+    for (let l = 0; l + 1 < LAYERS.length; l++) for (let i = 0; i < LAYERS[l]; i++) for (let j = 0; j < LAYERS[l + 1]; j++) {
+      const on = masks[l][i] && masks[l + 1][j], [x0, y0] = pos(l, i), [x1, y1] = pos(l + 1, j);
+      ctx.strokeStyle = on ? Fig.rgba(accent, 0.35) : Fig.rgba(muted, 0.08); ctx.lineWidth = on ? 1.2 : 1;
+      ctx.beginPath(); ctx.moveTo(x0 + r, y0); ctx.lineTo(x1 - r, y1); ctx.stroke();
+    }
+    LAYERS.forEach((n, l) => { for (let i = 0; i < n; i++) {
+      const [x, y] = pos(l, i), on = masks[l][i];
+      ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = on ? (DROP[l] ? soft : surface) : surface; ctx.fill();
+      ctx.strokeStyle = on ? (DROP[l] ? accent : fg) : rule; ctx.lineWidth = on ? 1.6 : 1.2; ctx.setLineDash(on ? [] : [3, 3]); ctx.stroke(); ctx.setLineDash([]);
+      if (!on) { ctx.strokeStyle = hole; ctx.lineWidth = 1.6; const d = r * 0.45; ctx.beginPath(); ctx.moveTo(x - d, y - d); ctx.lineTo(x + d, y + d); ctx.moveTo(x + d, y - d); ctx.lineTo(x - d, y + d); ctx.stroke(); }
+      else if (DROP[l] && train && p > 0 && r >= 12) { ctx.fillStyle = accent; ctx.font = `600 ${Math.round(r * 0.62)}px ${Fig.MONO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('×' + TR.fmt(scale, scale < 10 ? 1 : 0), x, y + 1); }
+    } });
+    ctx.font = `600 12px ${Fig.DISPLAY}`; ctx.fillStyle = muted; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    (w < 520 ? ['input', 'dropout', 'dropout', 'output'] : ['input', 'hidden + dropout', 'hidden + dropout', 'output']).forEach((t, l) => ctx.fillText(t, xs[l], 16));
+    $('td-p-o').textContent = TR.fmt(p, 2);
+    const kept = masks[1].filter(Boolean).length + masks[2].filter(Boolean).length;
+    read.innerHTML = train
+      ? `<span class="k">active hidden units </span>${kept} of 14   <span class="k">survivors scaled by </span><span class="hl">1/(1 − ${TR.fmt(p, 2)}) = ${TR.fmt(scale, 2)}</span>\n<span class="k">expected value of one unit </span>(1 − p) · x / (1 − p) = x`
+      : `<span class="k">evaluation: every unit active, no scaling; the layer returns its input unchanged</span>`;
+    bPlay.textContent = playing ? 'Pause' : 'Play';
+  }
+  Fig.loop(cv, dt => { if (!playing || sm.value !== 'train') return; acc += dt; if (acc > 0.9) { acc = 0; sample(); draw(); } });
+  sample();
+  ip.addEventListener('input', () => { sample(); draw(); });
+  sm.addEventListener('input', () => { sample(); draw(); });
+  bPlay.addEventListener('click', () => { playing = !playing; draw(); });
+  Fig.onRedraw(cv, draw);
+})();
+</script>

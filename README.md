@@ -66,7 +66,8 @@ uv run --group docs docmd serve docs     # http://127.0.0.1:8000
   pooling, batch normalization, a CNN for MNIST
 - [Transformers](docs/pages/networks/transformer.md): embeddings, positional
   encoding, attention, LayerNorm, the Transformer block, Shakespeare, ViT
-- Optimizers: planned
+- [Training](docs/pages/training/training.md): mini-batches, SGD, Adam, weight
+  decay, dropout, learning-rate schedules, gradient clipping, checkpoints, GPU
 
 Bugs that came up along the way and how they were fixed are collected in the
 [engineering report](reports/engineering-report.md).

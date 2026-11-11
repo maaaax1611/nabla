@@ -1,0 +1,50 @@
+<!-- title: Clipping the global gradient norm
+     lib: fig, tr
+     height: 560 -->
+<figure class="fig">
+  <canvas id="tc-cv" class="c-tr c-tr-drag" tabindex="0" role="img" aria-label="A gradient with two components, one per parameter, drawn as an arrow that can be dragged. A circle marks the allowed global norm and a square the allowed size of each component. Global clipping shortens the arrow along its own direction; clipping each component separately changes its direction."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="tc-m">max_norm</label><output id="tc-m-o"></output></div><input id="tc-m" type="range" min="0.5" max="4" step="0.1" value="2" autocomplete="off"></div>
+  </div>
+  <div class="readout" id="tc-read"></div>
+  <figcaption><b>Fig.</b> Drag the gradient (or use the arrow keys). Its two components belong to two different parameters. <code>clip_grad_norm_</code> computes one norm over all gradients and, if it exceeds <code>max_norm</code>, scales every gradient by the same factor: the update keeps its direction and only gets shorter. Clipping each parameter on its own, shown for comparison, cuts the large component more than the small one and turns the update.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('tc-cv'), imx = $('tc-m'), read = $('tc-read'), R = 6;
+  let g = [5, 1.6], geo = null, dragging = false;
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), fg = Fig.token('--fg'), muted = Fig.token('--muted'), grid = Fig.token('--grid'), rule = Fig.token('--rule'), accent = Fig.token('--accent'), hole = Fig.token('--hole');
+    const narrow = w < 520, side = narrow ? Math.min(w - 16, h * 0.62) : Math.min(h - 16, w * 0.55), x0 = narrow ? (w - side) / 2 : 8, y0 = 8;
+    geo = { x0, y0, side };
+    const P = (x, y) => [x0 + (x + R) / (2 * R) * side, y0 + (R - y) / (2 * R) * side], scale = side / (2 * R);
+    for (let v = -R; v <= R; v++) { ctx.strokeStyle = v === 0 ? rule : grid; ctx.lineWidth = 1; const [x] = P(v, 0), [, y] = P(0, v); ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + side); ctx.moveTo(x0, y); ctx.lineTo(x0 + side, y); ctx.stroke(); }
+    const m = +imx.value, [cx, cy] = P(0, 0);
+    ctx.setLineDash([5, 4]); ctx.strokeStyle = accent; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(cx, cy, m * scale, 0, 2 * Math.PI); ctx.stroke();
+    ctx.strokeStyle = hole; ctx.strokeRect(cx - m * scale, cy - m * scale, 2 * m * scale, 2 * m * scale); ctx.setLineDash([]);
+    const n = Math.hypot(...g), coef = m / (n + 1e-6), glob = coef < 1 ? g.map(v => v * coef) : g.slice(), per = g.map(v => Fig.clamp(v, -m, m));
+    TR.arrow(ctx, cx, cy, ...P(...g), muted, 2);
+    TR.arrow(ctx, cx, cy, ...P(...per), hole, 2.4);
+    TR.arrow(ctx, cx, cy, ...P(...glob), accent, 2.6);
+    const [gx, gy] = P(...g); ctx.strokeStyle = fg; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(gx, gy, 6, 0, 2 * Math.PI); ctx.stroke();
+    ctx.font = `600 12px ${Fig.DISPLAY}`; ctx.fillStyle = muted; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.textAlign = 'right'; ctx.fillText('parameter A →', x0 + side - 4, cy + 4);
+    ctx.textAlign = 'left'; ctx.fillText('↑ parameter B', cx + 6, y0 + 4);
+    const lx = narrow ? 16 : x0 + side + 28, ly = narrow ? y0 + side + 18 : 30;
+    [[muted, 'original gradient'], [accent, 'global norm clipping (nabla)'], [hole, 'clipping each parameter']].forEach(([c, t], i) => {
+      ctx.fillStyle = c; ctx.fillRect(lx, ly + i * 24 + 5, 18, 4); ctx.font = `600 13px ${Fig.DISPLAY}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(t, lx + 26, ly + i * 24 + 7);
+    });
+    const ang = v => Math.atan2(v[1], v[0]) * 180 / Math.PI;
+    $('tc-m-o').textContent = TR.fmt(m, 1);
+    read.innerHTML = `<span class="k">norm </span>${TR.fmt(n, 2)}   <span class="k">factor </span>${coef < 1 ? TR.fmt(coef, 3) : '1 (no clipping)'}\n<span class="k">direction  original </span>${TR.fmt(ang(g), 1)}°   <span class="k">global </span><span class="hl">${TR.fmt(ang(glob), 1)}°</span>   <span class="k">per parameter </span><span class="gr">${TR.fmt(ang(per), 1)}°</span>`;
+  }
+  function setFrom(e) { const r = cv.getBoundingClientRect(); g = [Fig.clamp(((e.clientX - r.left) - geo.x0) / geo.side * 2 * R - R, -R, R), Fig.clamp(R - ((e.clientY - r.top) - geo.y0) / geo.side * 2 * R, -R, R)]; draw(); }
+  cv.addEventListener('pointerdown', e => { const r = cv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top; if (x < geo.x0 || x > geo.x0 + geo.side || y < geo.y0 || y > geo.y0 + geo.side) return; dragging = true; cv.setPointerCapture(e.pointerId); setFrom(e); });
+  cv.addEventListener('pointermove', e => { if (dragging) setFrom(e); });
+  cv.addEventListener('pointerup', () => { dragging = false; });
+  cv.addEventListener('keydown', e => { const d = { ArrowLeft: [-0.1, 0], ArrowRight: [0.1, 0], ArrowUp: [0, 0.1], ArrowDown: [0, -0.1] }[e.key]; if (!d) return; e.preventDefault(); g = [Fig.clamp(g[0] + d[0], -R, R), Fig.clamp(g[1] + d[1], -R, R)]; draw(); });
+  imx.addEventListener('input', draw);
+  Fig.onRedraw(cv, draw);
+})();
+</script>

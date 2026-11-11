@@ -15,6 +15,3 @@ categories:
   - id: training
     title: Training
     desc: From gradients to a trained model.
-
-planned:
-  - { category: training, title: Optimizers and schedules, desc: "SGD, Adam, weight decay, dropout, learning-rate schedules and gradient clipping.", tags: [SGD, Adam, Dropout] }

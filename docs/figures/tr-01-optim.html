@@ -1,0 +1,75 @@
+<!-- title: SGD and Adam in a narrow valley
+     lib: fig, tr
+     height: 640 -->
+<figure class="fig">
+  <canvas id="to-cv" class="c-tr" role="img" aria-label="Contour lines of an elongated valley with its minimum at the centre. Two paths start at the same point: plain SGD zig-zags across the steep direction and creeps along the flat one, Adam moves at a similar speed in both directions. The loss of both is plotted on the right."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="to-ls">SGD learning rate</label><output id="to-ls-o"></output></div><input id="to-ls" type="range" min="0.05" max="0.6" step="0.01" value="0.4" autocomplete="off"></div>
+    <div class="ctrl"><div class="lab"><label for="to-la">Adam learning rate</label><output id="to-la-o"></output></div><input id="to-la" type="range" min="0.02" max="0.5" step="0.01" value="0.1" autocomplete="off"></div>
+    <div class="ctrl"><div class="lab"><label for="to-n">Gradient noise</label><output id="to-n-o"></output></div><input id="to-n" type="range" min="0" max="2" step="0.1" value="0" autocomplete="off"></div>
+    <button class="btn" type="button" id="to-play">Pause</button>
+  </div>
+  <div class="readout" id="to-read"></div>
+  <figcaption><b>Fig.</b> The loss \(L = 0.01\,x^2 + 2\,y^2\) is 200 times more curved in \(y\) than in \(x\). SGD needs a learning rate below \(2/4 = 0.5\) to stay stable in the steep direction, and with such a rate it crawls along the flat one. Adam divides each coordinate by its own running gradient size and moves at a similar speed in both. The valley is aligned with the axes, the case where per-coordinate scaling helps most. <i>Gradient noise</i> adds random errors to every gradient, as mini-batches do.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('to-cv'), ils = $('to-ls'), ila = $('to-la'), inz = $('to-n'), bPlay = $('to-play'), read = $('to-read');
+  const A = 0.01, B = 2, START = [-4.2, 1.6], STEPS = 120, XR = 5, YR = 2.2;
+  const loss = ([x, y]) => A * x * x + B * y * y, grad = ([x, y]) => [2 * A * x, 2 * B * y];
+  let sgd, adam, step, acc = 0;
+  function reset() {
+    const r = TR.rng(17), noise = +inz.value;
+    const noisy = g => g.map(v => v + noise * r.g());
+    sgd = [START.slice()]; adam = [START.slice()];
+    let p = START.slice(), q = START.slice(), m = [0, 0], v = [0, 0];
+    const lrs = +ils.value, lra = +ila.value, b1 = 0.9, b2 = 0.999, eps = 1e-8;
+    for (let t = 1; t <= STEPS; t++) {
+      const g = noisy(grad(p)); p = [p[0] - lrs * g[0], p[1] - lrs * g[1]]; sgd.push(p);
+      const h = noisy(grad(q));
+      m = m.map((mi, i) => b1 * mi + (1 - b1) * h[i]); v = v.map((vi, i) => b2 * vi + (1 - b2) * h[i] * h[i]);
+      q = q.map((qi, i) => qi - lra * (m[i] / (1 - b1 ** t)) / (Math.sqrt(v[i] / (1 - b2 ** t)) + eps)); adam.push(q);
+    }
+    step = Fig.reduceMotion ? STEPS : 0;
+  }
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), fg = Fig.token('--fg'), muted = Fig.token('--muted'), rule = Fig.token('--rule'), accent = Fig.token('--accent'), hole = Fig.token('--hole');
+    const narrow = w < 520;
+    const mb = narrow ? { x: 8, y: 22, w: w - 16, h: (w - 16) * YR / XR } : { x: 8, y: 22, w: w * 0.6 - 8, h: Math.min(h - 30, (w * 0.6 - 8) * YR / XR) };
+    const px = x => mb.x + (x + XR) / (2 * XR) * mb.w, py = y => mb.y + (YR - y) / (2 * YR) * mb.h;
+    TR.label(ctx, 'loss surface', mb.x, mb.y - 6);
+    ctx.save(); ctx.beginPath(); ctx.rect(mb.x, mb.y, mb.w, mb.h); ctx.clip();
+    ctx.strokeStyle = rule; ctx.lineWidth = 1;
+    for (const c of [0.01, 0.03, 0.08, 0.18, 0.4, 0.9, 1.8, 3.2, 5.5]) { ctx.beginPath(); ctx.ellipse(px(0), py(0), Math.sqrt(c / A) / (2 * XR) * mb.w, Math.sqrt(c / B) / (2 * YR) * mb.h, 0, 0, 2 * Math.PI); ctx.stroke(); }
+    const path = (pts, color) => {
+      ctx.strokeStyle = color; ctx.lineWidth = 1.8; ctx.lineJoin = 'round'; ctx.beginPath();
+      // a diverging path is drawn only until it leaves the plot
+      let last = 0;
+      for (let i = 0; i <= step; i++) { const [x, y] = pts[i]; if (Math.abs(x) > 1.5 * XR || Math.abs(y) > 1.5 * YR) break; i ? ctx.lineTo(px(x), py(y)) : ctx.moveTo(px(x), py(y)); last = i; }
+      ctx.stroke();
+      if (last === step) { const [x, y] = pts[step]; ctx.fillStyle = color; ctx.beginPath(); ctx.arc(px(x), py(y), 4.5, 0, 2 * Math.PI); ctx.fill(); }
+    };
+    path(sgd, hole); path(adam, accent);
+    ctx.restore();
+    ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(px(0), py(0), 3, 0, 2 * Math.PI); ctx.fill();
+    ctx.strokeStyle = rule; ctx.strokeRect(mb.x, mb.y, mb.w, mb.h);
+    // loss curves
+    const lb = narrow ? { x: 44, y: mb.y + mb.h + 40, w: w - 56, h: h - (mb.y + mb.h + 40) - 26 } : { x: w * 0.6 + 52, y: 22, w: w * 0.4 - 64, h: h - 22 - 26 };
+    const { px: lx, py: ly } = TR.frame(ctx, lb, { xmin: 0, xmax: STEPS, ymin: -4, ymax: 2, xticks: [0, 40, 80, 120], yticks: [-4, -2, 0, 2], yfmt: v => '10' + String(v).replace('-', '⁻').replace(/\d/g, c => '⁰¹²³⁴⁵⁶⁷⁸⁹'[c]), title: 'loss (log scale)' });
+    const curve = (pts, color) => { ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath(); pts.slice(0, step + 1).forEach((p, i) => { const v = Fig.clamp(Math.log10(Math.max(1e-6, loss(p))), -4, 2); i ? ctx.lineTo(lx(i), ly(v)) : ctx.moveTo(lx(i), ly(v)); }); ctx.stroke(); };
+    curve(sgd, hole); curve(adam, accent);
+    ctx.font = `600 13px ${Fig.DISPLAY}`; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.fillStyle = hole; ctx.fillText('SGD', lb.x + lb.w - 4, lb.y + 4); ctx.fillStyle = accent; ctx.fillText('Adam', lb.x + lb.w - 4, lb.y + 22);
+    $('to-ls-o').textContent = TR.fmt(+ils.value, 2); $('to-la-o').textContent = TR.fmt(+ila.value, 2); $('to-n-o').textContent = TR.fmt(+inz.value, 1);
+    const ls = loss(sgd[step]), la = loss(adam[step]), show = v => v > 1e3 || !isFinite(v) ? 'diverged' : v < 1e-3 ? TR.sci(v) : TR.fmt(v, 4);
+    read.innerHTML = `<span class="k">step </span>${step}\n<span class="k">SGD  loss </span><span class="gr">${show(ls)}</span>   <span class="k">Adam loss </span><span class="hl">${show(la)}</span>`;
+    bPlay.textContent = anim.running ? 'Pause' : 'Play';
+  }
+  const anim = Fig.loop(cv, dt => { acc += dt; if (acc < 1 / 30) return; acc = 0; step = step >= STEPS ? 0 : step + 1; draw(); });
+  reset();
+  [ils, ila, inz].forEach(el => el.addEventListener('input', () => { reset(); draw(); }));
+  bPlay.addEventListener('click', () => { anim.toggle(); draw(); });
+  Fig.onRedraw(cv, draw);
+})();
+</script>

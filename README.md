@@ -1,6 +1,9 @@
 # nabla
 
 [![tests](https://github.com/maaaax1611/nabla/actions/workflows/tests.yml/badge.svg)](https://github.com/maaaax1611/nabla/actions/workflows/tests.yml)
+[![docs](https://github.com/maaaax1611/nabla/actions/workflows/docs.yml/badge.svg)](https://maaaax1611.github.io/nabla/)
+
+**Documentation:** https://maaaax1611.github.io/nabla/
 
 A small automatic differentiation library built on NumPy, modeled on
 PyTorch's design: a define-by-run computational graph, reverse-mode
@@ -50,24 +53,27 @@ uv run python examples/shakespeare_transformer.py  # character-level Transformer
 
 ## How it works
 
-[`docs/`](docs/) holds the documentation: one page per topic with the math,
-the code that implements it and figures you can step through. It is built
-with [doc.md](https://github.com/maaaax1611/doc.md):
+The [documentation](https://maaaax1611.github.io/nabla/) explains each building block on its own page:
+the math, the code that implements it and figures you can step through.
+
+- [Autograd](https://maaaax1611.github.io/nabla/core/autograd.html): the computational graph, the
+  backward pass, broadcasting, gradient checks
+- [Neural networks](https://maaaax1611.github.io/nabla/networks/neural-networks.html): modules, linear
+  layers, activations, initialization, softmax cross-entropy, XOR
+- [Convolutional networks](https://maaaax1611.github.io/nabla/networks/cnn.html): convolution, im2col,
+  pooling, batch normalization, a CNN for MNIST
+- [Transformers](https://maaaax1611.github.io/nabla/networks/transformer.html): embeddings, positional
+  encoding, attention, LayerNorm, the Transformer block, Shakespeare, ViT
+- [Training](https://maaaax1611.github.io/nabla/training/training.html): mini-batches, SGD, Adam, weight
+  decay, dropout, learning-rate schedules, gradient clipping, checkpoints, GPU
+
+The sources are in [`docs/`](docs/), built with
+[doc.md](https://github.com/maaaax1611/doc.md); every push to `main` that
+changes them republishes the site. To work on them locally:
 
 ```bash
 uv run --group docs docmd serve docs     # http://127.0.0.1:8000
 ```
-
-- [Autograd](docs/pages/core/autograd.md): the computational graph, the
-  backward pass, broadcasting, gradient checks
-- [Neural networks](docs/pages/networks/neural-networks.md): modules, linear
-  layers, activations, initialization, softmax cross-entropy, XOR
-- [Convolutional networks](docs/pages/networks/cnn.md): convolution, im2col,
-  pooling, batch normalization, a CNN for MNIST
-- [Transformers](docs/pages/networks/transformer.md): embeddings, positional
-  encoding, attention, LayerNorm, the Transformer block, Shakespeare, ViT
-- [Training](docs/pages/training/training.md): mini-batches, SGD, Adam, weight
-  decay, dropout, learning-rate schedules, gradient clipping, checkpoints, GPU
 
 Bugs that came up along the way and how they were fixed are collected in the
 [engineering report](reports/engineering-report.md).

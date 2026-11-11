@@ -60,7 +60,9 @@ uv run --group docs docmd serve docs     # http://127.0.0.1:8000
 
 - [Autograd](docs/pages/core/autograd.md): the computational graph, the
   backward pass, broadcasting, gradient checks
-- Neural networks, convolutional networks, Transformers, optimizers: planned
+- [Neural networks](docs/pages/networks/neural-networks.md): modules, linear
+  layers, activations, initialization, softmax cross-entropy, XOR
+- Convolutional networks, Transformers, optimizers: planned
 
 Bugs that came up along the way and how they were fixed are collected in the
 [engineering report](reports/engineering-report.md).

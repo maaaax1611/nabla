@@ -17,7 +17,6 @@ categories:
     desc: From gradients to a trained model.
 
 planned:
-  - { category: networks, title: Neural networks, desc: "Modules, linear layers, activations, initialization and the softmax cross-entropy loss.", tags: [MLP, Linear, Softmax] }
   - { category: networks, title: Convolutional networks, desc: "Convolution via im2col, pooling and batch normalization.", tags: [Conv2D, Pooling, BatchNorm] }
   - { category: networks, title: Transformers, desc: "Embeddings, attention, layer normalization and the Transformer block.", tags: [Attention, LayerNorm, ViT] }
   - { category: training, title: Optimizers and schedules, desc: "SGD, Adam, weight decay, dropout, learning-rate schedules and gradient clipping.", tags: [SGD, Adam, Dropout] }

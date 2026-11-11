@@ -1,0 +1,44 @@
+<!-- title: Activation functions and their derivatives
+     lib: fig, nn
+     height: 500 -->
+<figure class="fig">
+  <canvas id="nna-cv" class="c-nn" role="img" aria-label="Two plots side by side: the selected activation function on the left and its derivative on the right, each with a marker at the chosen input."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="nna-act">Activation</label></div>
+      <select id="nna-act" autocomplete="off"><option value="relu">ReLU</option><option value="sigmoid">Sigmoid</option><option value="tanh">Tanh</option><option value="gelu">GELU</option></select></div>
+    <div class="ctrl"><div class="lab"><label for="nna-x">Input x</label><output id="nna-x-o"></output></div><input id="nna-x" type="range" min="-4" max="4" step="0.1" value="1" autocomplete="off"></div>
+  </div>
+  <div class="readout" id="nna-read"></div>
+  <figcaption><b>Fig.</b> Left the function, right its derivative, the factor by which a gradient is multiplied on its way back through the activation. The other three functions are drawn faintly for comparison. Sigmoid and tanh flatten out on both sides, so large inputs pass almost no gradient.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('nna-cv'), sel = $('nna-act'), ix = $('nna-x');
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), accent = Fig.token('--accent'), rule = Fig.token('--rule'), fg = Fig.token('--fg');
+    const gap = 44, L = 34, bw = (w - L - gap - 8) / 2, bh = h - 24 - 26, cur = NN.ACT[sel.value], x = +ix.value;
+    const panels = [
+      { box: { x: L, y: 24, w: bw, h: bh }, key: 'f', title: 'f(x)', ymin: -1.5, ymax: 4, yticks: [-1, 0, 1, 2, 3, 4] },
+      { box: { x: L + bw + gap, y: 24, w: bw, h: bh }, key: 'd', title: "f′(x)", ymin: -0.25, ymax: 1.25, yticks: [0, 0.5, 1] },
+    ];
+    for (const p of panels) {
+      const { px, py } = NN.frame(ctx, p.box, { xmin: -4, xmax: 4, ymin: p.ymin, ymax: p.ymax, xticks: [-4, -2, 0, 2, 4], yticks: p.yticks, title: p.title });
+      const curve = (fn, color, width) => {
+        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineJoin = 'round'; ctx.beginPath();
+        for (let i = 0; i <= 320; i++) { const v = -4 + 8 * i / 320, y = Fig.clamp(fn(v), p.ymin, p.ymax); i ? ctx.lineTo(px(v), py(y)) : ctx.moveTo(px(v), py(y)); }
+        ctx.stroke();
+      };
+      ctx.save(); ctx.beginPath(); ctx.rect(p.box.x, p.box.y, p.box.w, p.box.h); ctx.clip();
+      for (const k of Object.keys(NN.ACT)) if (k !== sel.value) curve(NN.ACT[k][p.key], rule, 1.2);
+      curve(cur[p.key], accent, 2.2);
+      ctx.restore();
+      ctx.fillStyle = fg; ctx.beginPath(); ctx.arc(px(x), py(Fig.clamp(cur[p.key](x), p.ymin, p.ymax)), 4.5, 0, 2 * Math.PI); ctx.fill();
+    }
+    $('nna-x-o').textContent = NN.fmt(x, 1);
+    $('nna-read').innerHTML = `<span class="k">f(x)  </span>${NN.fmt(cur.f(x), 3)}<br><span class="k">f′(x) </span><span class="hl">${NN.fmt(cur.d(x), 3)}</span>`;
+  }
+  [sel, ix].forEach(el => el.addEventListener('input', draw));
+  Fig.onRedraw(cv, draw);
+})();
+</script>

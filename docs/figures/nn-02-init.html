@@ -1,0 +1,59 @@
+<!-- title: Signal size through twelve layers
+     lib: fig, nn
+     height: 520 -->
+<figure class="fig">
+  <canvas id="nni-cv" class="c-nn" role="img" aria-label="Bar chart on a logarithmic axis: the root mean square of the activations after each of twelve layers. Depending on the weight variance the bars shrink towards zero, stay level or grow."></canvas>
+  <div class="ctrls">
+    <div class="ctrl"><div class="lab"><label for="nni-act">Activation</label></div>
+      <select id="nni-act" autocomplete="off"><option value="relu">ReLU</option><option value="tanh">Tanh</option></select></div>
+    <div class="ctrl"><div class="lab"><label for="nni-g">Weight variance σ² · n</label><output id="nni-g-o"></output></div><input id="nni-g" type="range" min="-2" max="2" step="0.05" value="1" autocomplete="off"></div>
+    <button class="btn" type="button" id="nni-new">New weights</button>
+  </div>
+  <div class="readout" id="nni-read"></div>
+  <figcaption><b>Fig.</b> A batch of random inputs passes through twelve layers of width 100 with weights drawn from \(\mathcal N(0, \sigma^2)\). The bars show the root mean square of the activations after each layer. With ReLU the signal keeps its size at \(\sigma^2 n = 2\) (He); below it fades, above it grows, each by a constant factor per layer. Tanh is stable around \(\sigma^2 n = 1\) (Xavier) and cannot explode because its output is bounded.</figcaption>
+</figure>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const cv = $('nni-cv'), sel = $('nni-act'), ig = $('nni-g'), DEPTH = 12, N = 100, BATCH = 40;
+  let seed = 7, W = null, X = null;
+  function sample() {                                   // unit-variance weights; the slider only scales them
+    const r = NN.rng(seed);
+    W = Array.from({ length: DEPTH }, () => Float64Array.from({ length: N * N }, r.g));
+    X = Array.from({ length: BATCH }, () => Float64Array.from({ length: N }, r.g));
+  }
+  function rmsPerLayer(gain, f) {
+    const scale = Math.sqrt(gain / N), out = [1];
+    let cur = X;
+    for (let l = 0; l < DEPTH; l++) {
+      const w = W[l]; let sq = 0;
+      cur = cur.map(x => { const y = new Float64Array(N);
+        for (let j = 0; j < N; j++) { let s = 0; for (let i = 0; i < N; i++) s += x[i] * w[i * N + j]; const v = f(s * scale); y[j] = v; sq += v * v; }
+        return y; });
+      out.push(Math.sqrt(sq / (BATCH * N)));
+    }
+    return out;
+  }
+  function draw() {
+    const { ctx, w, h } = Fig.fit(cv), accent = Fig.token('--accent'), fg = Fig.token('--fg'), muted = Fig.token('--muted');
+    const gain = Math.pow(2, +ig.value), rms = rmsPerLayer(gain, NN.ACT[sel.value].f);
+    const box = { x: 46, y: 22, w: w - 46 - 10, h: h - 22 - 28 }, LO = -4, HI = 4;
+    const { px, py } = NN.frame(ctx, box, { xmin: -0.7, xmax: DEPTH + 0.7, ymin: LO, ymax: HI, yticks: [-4, -2, 0, 2, 4], yfmt: v => '10' + NN.sup(v),
+      xticks: [0, 2, 4, 6, 8, 10, 12], title: 'RMS of the activations after layer …' });
+    ctx.strokeStyle = muted; ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(box.x, py(0)); ctx.lineTo(box.x + box.w, py(0)); ctx.stroke(); ctx.setLineDash([]);
+    const bw = Math.min(26, box.w / (DEPTH + 1.4) * 0.62);
+    rms.forEach((v, l) => {
+      const lv = Fig.clamp(Math.log10(Math.max(v, 1e-300)), LO, HI);
+      ctx.fillStyle = l === 0 ? muted : accent; ctx.fillRect(px(l) - bw / 2, Math.min(py(0), py(lv)), bw, Math.max(2, Math.abs(py(lv) - py(0))));
+    });
+    $('nni-g-o').textContent = NN.fmt(gain, 2);
+    const per = Math.pow(rms[DEPTH] / rms[2], 1 / (DEPTH - 2));
+    const hint = sel.value === 'relu' ? `theory for ReLU: √(σ²n / 2) = ${NN.fmt(Math.sqrt(gain / 2), 2)}` : 'tanh: about √(σ²n) while the activations are small';
+    $('nni-read').innerHTML = `<span class="k">after 12 layers </span>${rms[DEPTH] < 1e-3 || rms[DEPTH] > 1e3 ? rms[DEPTH].toExponential(1).replace('-', '−') : NN.fmt(rms[DEPTH], 3)}<br><span class="k">factor per layer </span><span class="hl">${NN.fmt(per, 2)}</span>  <span class="k">${hint}</span>`;
+  }
+  sample();
+  [sel, ig].forEach(el => el.addEventListener('input', draw));
+  $('nni-new').addEventListener('click', () => { seed += 1; sample(); draw(); });
+  Fig.onRedraw(cv, draw);
+})();
+</script>
